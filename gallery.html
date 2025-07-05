@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plantoid 15 - NFT Gallery</title>
+    <link href="https://fonts.googleapis.com/css2?family=Lato:wght@300&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="plantoid.css">
+    <link rel="stylesheet" href="gallery.css">
+</head>
+<body>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js" type="application/javascript"></script>
+    
+    <div class="background-pattern"></div>
+    
+    <div class="container">
+        <!-- Left Sidebar Navigation -->
+        <nav class="sidebar-nav">
+            <div class="logo">
+                <h1>PLANTOID 15</h1>
+            </div>
+            <div class="nav-items">
+                <a href="index.html" class="sidebar-nav-link">
+                    <span>Home</span>
+                </a>
+                <a href="gallery.html" class="sidebar-nav-link active">
+                    <span>Gallery</span>
+                </a>
+            </div>
+            <div class="network-selector" style="padding: 0 1rem; margin-top: auto; padding-bottom: 1rem;">
+                <select id="network-select">
+                    <option value="sepolia">Sepolia Testnet</option>
+                    <option value="mainnet">Ethereum Mainnet</option>
+                </select>
+                <div id="network-indicator" class="network-indicator testnet">Sepolia Testnet</div>
+            </div>
+        </nav>
+
+        <!-- Main Content Area -->
+        <div class="main-content">
+            <div class="gallery-content">
+                <div class="gallery-info">
+                    <h2>Plantoid Seeds Gallery</h2>
+                    <p>Reveal unrevealed seeds and browse revealed collections</p>
+                    <div class="gallery-stats">
+                        <span>Total Seeds Minted: <span id="total-seeds">Loading...</span></span>
+                    </div>
+                </div>
+
+            <!-- Unrevealed NFTs Section -->
+            <div id="unrevealed-section" class="unrevealed-section" style="display: none;">
+                <div class="section-header">
+                    <h3>🔒 Seeds Ready to Reveal</h3>
+                    <p>These seeds have metadata available and can be revealed</p>
+                </div>
+                <div id="unrevealed-loading" class="loading-message" style="display: none;">Loading unrevealed seeds...</div>
+                <div id="unrevealed-table" class="reveal-table">
+                    <!-- Unrevealed NFTs table will be loaded here -->
+                </div>
+            </div>
+
+            <!-- Revealed NFTs Section -->
+            <div class="revealed-section">
+                <div class="section-header">
+                    <h3>🌱 Revealed Seeds Collection</h3>
+                    <p>Displaying revealed NFTs with video content</p>
+                </div>
+                
+                <div id="loading-message" class="loading-message">Loading NFTs...</div>
+                <div id="error-message" class="error-message" style="display: none;"></div>
+                
+                <div id="nft-gallery" class="nft-gallery">
+                    <!-- NFTs will be dynamically loaded here -->
+                </div>
+            </div>
+            </div> <!-- End gallery-content -->
+        </div> <!-- End main-content -->
+    </div> <!-- End container -->
+
+    <script type="module" src="modules/gallery.js"></script>
+</body>
+</html>

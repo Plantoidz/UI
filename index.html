@@ -6,6 +6,7 @@
     <title>Plantoid 15</title>
     <link href="https://fonts.googleapis.com/css2?family=Lato:wght@300&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="plantoid.css">
+    <link rel="stylesheet" href="main-sidebar.css">
 </head>
 <body>
 
@@ -20,9 +21,30 @@
     <div class="background-pattern"></div>
     
     <div class="container">
-        <header class="header">
-            <h1 class="title">PLANTOID 15</h1>
-        </header>
+        <!-- Left Sidebar Navigation -->
+        <nav class="sidebar-nav">
+            <div class="logo">
+                <h1>PLANTOID 15</h1>
+            </div>
+            <div class="nav-items">
+                <a href="index.html" class="sidebar-nav-link active">
+                    <span>Home</span>
+                </a>
+                <a href="gallery.html" class="sidebar-nav-link">
+                    <span>Gallery</span>
+                </a>
+            </div>
+            <div class="sidebar-connect-wallet">
+                <button id="connect-wallet" class="connect-wallet-btn">Connect Wallet</button>
+            </div>
+            <div class="network-selector" style="padding: 0 1rem; margin-top: auto; padding-bottom: 1rem;">
+                <select id="network-select">
+                    <option value="sepolia">Sepolia Testnet</option>
+                    <option value="mainnet">Ethereum Mainnet</option>
+                </select>
+                <div id="network-indicator" class="network-indicator testnet">Sepolia Testnet</div>
+            </div>
+        </nav>
 
         <div class="main-content">
             <div class="plantoid-card">
@@ -35,7 +57,7 @@
                     </div>
                     <div class="stat-item">
                         <span class="stat-label">Seeds owned by you:</span>
-                        <span class="stat-value" id="your-seeds"></span>
+                        <span class="stat-value" id="your-seeds">Connect wallet to see</span>
                     </div>
                     <div class="stat-item">
                         <span class="stat-label">Smart Contract:</span>
@@ -59,23 +81,72 @@
                     </div>
                 </div>
 
-                <button class="feed-button">Feed the Plantoid</button>
+                <button class="feed-button" id="feed-button">Feed Plantoid</button>
+                <div class="feed-amount" id="feed-amount">Amount: 0.001 ETH</div>
                 <div class="feed-button-small">Whenever you feed the Plantoid with cryptocurrency, you acquire a digital seed (NFT) with personalised artwork</div>
             </div>
 
             <script type="module">
-                import { feedPlantoid } from './modules/web3utils.js';
+                import { feedPlantoid, handleConnectWallet, switchNetwork, getCurrentNetworkInfo } from './modules/web3utils.js';
         
                 // Feed button interaction
                 document.querySelector('.feed-button').addEventListener('click', function() {
+                    const networkInfo = getCurrentNetworkInfo();
+                    const amount = networkInfo.isTestnet ? "0.001" : "0.01"; // Sepolia: 0.001 ETH, Mainnet: 0.01 ETH
+                    
                     this.textContent = 'Feeding...';
                     this.style.background = 'linear-gradient(45deg, #16a085, #27ae60)';
-                    feedPlantoid("0.001");
+                    feedPlantoid(amount);
                     setTimeout(() => {
-                        this.textContent = 'Feed the Plantoid';
+                        this.textContent = 'Feed Plantoid';
                         this.style.background = 'linear-gradient(45deg, #1a1a2e, #16213e)';
                     }, 2000);
                 });
+
+                // Connect wallet button
+                document.getElementById('connect-wallet').addEventListener('click', async function() {
+                    this.textContent = 'Connecting...';
+                    const address = await handleConnectWallet();
+                    if (address) {
+                        this.textContent = address;
+                        this.style.background = 'linear-gradient(45deg, #16a085, #27ae60)';
+                    } else {
+                        this.textContent = 'Connect Wallet';
+                    }
+                });
+
+                // Network selector
+                document.getElementById('network-select').addEventListener('change', async function() {
+                    const selectedNetwork = this.value;
+                    console.log(`Switching to ${selectedNetwork}`);
+                    
+                    // Show loading state
+                    const indicator = document.getElementById('network-indicator');
+                    indicator.textContent = 'Switching...';
+                    indicator.className = 'network-indicator switching';
+                    
+                    // Switch network
+                    const success = await switchNetwork(selectedNetwork);
+                    
+                    if (!success) {
+                        // Reset selector if switch failed
+                        const currentNetwork = getCurrentNetworkInfo();
+                        this.value = currentNetwork.name.toLowerCase().includes('sepolia') ? 'sepolia' : 'mainnet';
+                    }
+                    
+                    // Update feed amount display
+                    updateFeedAmount();
+                });
+                
+                // Function to update feed amount display
+                function updateFeedAmount() {
+                    const networkInfo = getCurrentNetworkInfo();
+                    const amount = networkInfo.isTestnet ? "0.001" : "0.01";
+                    document.getElementById('feed-amount').textContent = `Amount: ${amount} ETH`;
+                }
+                
+                // Initialize feed amount on page load
+                updateFeedAmount();
             </script>
 
             <div class="info-section">
@@ -183,7 +254,8 @@
                 </div>
             </div>
         </section>
-    </div>
+        </div> <!-- End main-content -->
+    </div> <!-- End container -->
 
     <script>
         // Add some interactive effects

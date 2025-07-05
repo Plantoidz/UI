@@ -1,0 +1,165 @@
+/* Main page sidebar styles - matching gallery design */
+
+.container {
+    display: flex;
+    min-height: 100vh;
+    max-width: 100%;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+}
+
+/* Left sidebar navigation */
+.sidebar-nav {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 240px;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(20px);
+    border-right: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 2rem 0;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+}
+
+.sidebar-nav .logo {
+    padding: 0 1.5rem 2rem 1.5rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    margin-bottom: 2rem;
+}
+
+.sidebar-nav .logo h1 {
+    font-size: 1.4rem;
+    color: #ffffff;
+    font-weight: 300;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin: 0;
+}
+
+.sidebar-nav .nav-items {
+    flex: 1;
+    padding: 0 1rem;
+}
+
+.sidebar-nav-link {
+    display: block;
+    padding: 0.8rem 1rem;
+    color: rgba(255, 255, 255, 0.8);
+    text-decoration: none;
+    border-radius: 8px;
+    margin-bottom: 0.5rem;
+    transition: all 0.2s ease;
+    font-size: 0.9rem;
+    font-weight: 400;
+    letter-spacing: 0.02em;
+}
+
+.sidebar-nav-link:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: #ffffff;
+    transform: translateX(4px);
+}
+
+.sidebar-nav-link.active {
+    background: rgba(255, 255, 255, 0.12);
+    color: #ffffff;
+    border-left: 3px solid rgba(255, 255, 255, 0.6);
+    padding-left: 0.8rem;
+}
+
+/* Override main-content from plantoid.css - but keep the grid layout */
+.main-content {
+    position: absolute !important;
+    left: 240px !important;
+    right: 0 !important;
+    top: 0 !important;
+    bottom: 0 !important;
+    overflow-y: auto !important;
+    padding: 3rem !important;
+    box-sizing: border-box !important;
+    display: grid !important;
+    grid-template-columns: 1fr 1.8fr !important; /* Left column narrower, right column wider */
+    gap: 3rem !important;
+    align-items: start !important;
+    width: auto !important;
+    max-width: none !important;
+}
+
+/* Hide the old header */
+.header {
+    display: none;
+}
+
+/* Connect wallet button in sidebar */
+.sidebar-connect-wallet {
+    padding: 0 1rem;
+    margin-bottom: 1rem;
+}
+
+.sidebar-connect-wallet .connect-wallet-btn {
+    width: 100%;
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    padding: 0.8rem;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.sidebar-connect-wallet .connect-wallet-btn:hover {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+/* Responsive design */
+@media (max-width: 1200px) {
+    .main-content {
+        grid-template-columns: 1fr 1.5fr !important; /* Adjust ratio for medium screens */
+        gap: 2rem !important;
+    }
+}
+
+@media (max-width: 968px) {
+    .main-content {
+        grid-template-columns: 1fr !important; /* Stack vertically on tablets */
+        gap: 2rem !important;
+    }
+}
+
+@media (max-width: 768px) {
+    .sidebar-nav {
+        width: 200px;
+    }
+    
+    .main-content {
+        left: 200px !important;
+        padding: 1.5rem !important;
+        grid-template-columns: 1fr !important; /* Stack vertically */
+    }
+}
+
+@media (max-width: 480px) {
+    .sidebar-nav {
+        width: 180px;
+    }
+    
+    .main-content {
+        left: 180px !important;
+        padding: 1rem !important;
+    }
+    
+    .sidebar-nav .logo h1 {
+        font-size: 1.1rem;
+    }
+    
+    .sidebar-nav-link {
+        padding: 0.6rem 0.8rem;
+        font-size: 0.8rem;
+    }
+}

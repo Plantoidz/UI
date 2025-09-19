@@ -22,7 +22,7 @@ export const NETWORKS = {
 };
 
 // Default network (can be changed)
-export const DEFAULT_NETWORK = "sepolia";
+export const DEFAULT_NETWORK = "mainnet";
 
 // Rate limiting configuration for NFT loading
 export const RATE_LIMIT_CONFIG = {

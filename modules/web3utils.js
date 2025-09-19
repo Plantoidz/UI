@@ -6,6 +6,41 @@ let walletProvider = null;
 let signer = null;
 let isWalletConnected = false;
 
+// Check if wallet was previously connected
+async function checkExistingWalletConnection() {
+    if (window.ethereum) {
+        try {
+            const accounts = await window.ethereum.request({ 
+                method: 'eth_accounts' 
+            });
+            
+            if (accounts.length > 0) {
+                console.log("🔗 Found existing wallet connection");
+                walletProvider = new ethers.BrowserProvider(window.ethereum);
+                signer = await walletProvider.getSigner();
+                isWalletConnected = true;
+                
+                // Update UI elements if they exist
+                const connectButton = document.getElementById('connect-wallet');
+                if (connectButton) {
+                    const address = await signer.getAddress();
+                    const shortAddress = `${address.slice(0, 6)}...${address.slice(-4)}`;
+                    connectButton.textContent = shortAddress;
+                    connectButton.style.background = 'linear-gradient(45deg, #16a085, #27ae60)';
+                }
+                
+                // Load user seeds
+                await loadUserSeeds();
+                
+                return true;
+            }
+        } catch (error) {
+            console.log("No existing wallet connection found");
+        }
+    }
+    return false;
+}
+
 // Minimal ABI for balanceOf function
 const plantoidABI = [
     "function balanceOf(address owner) public view returns (uint256)"
@@ -316,7 +351,12 @@ export function getAvailableNetworks() {
 }
 
 // Initialize on page load
-initializeReadProvider();
+async function initialize() {
+    await initializeReadProvider();
+    await checkExistingWalletConnection();
+}
+
+initialize();
 
 // Set up periodic refresh of data (every 30 seconds)
 setInterval(async () => {

@@ -16,18 +16,18 @@ export const INFURA_PROJECT_ID = "460f40a260564ac4a4f4b3fffb032dad";
 
 export const PLANTOID_CONFIG = {
   // Basic info
-  number: 15,
-  name: "PLANTOID 15",
+  number: 14,
+  name: "PLANTOID 14",
   subtitle: "enigmatic poet with solarpunk vibes",
 
   // Visual assets
-  image: "./assets/P15.png", // Path to plantoid image
+  image: "./assets/P14.png", // Path to plantoid image
   headerImage: "./assets/header2.png", // Path to header background
 
   // Contract addresses for each network
   contracts: {
-    sepolia: "0x66078a2061A68d5bA6cDdBc81517837dA0C7d7b5",
-    mainnet: "0x4073E38f71b2612580E9e381031B0c38B3B4C27E",
+    sepolia: "0x3C6570206bB6b3BCbEc27643CBc89003a25caC8C",
+    mainnet: "0xFfe18b42DE363a9b06b6a6a91733f50F998c3F13",
   },
 
   // Description content

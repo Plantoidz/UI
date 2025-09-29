@@ -733,9 +733,14 @@ async function loadUnrevealedNFTs() {
         `✅ Displaying ${unrevealedWithSignatures.length} unrevealed NFTs with pagination`
       );
       
+      // Sort unrevealed seeds by tokenId in descending order (highest numbers first)
+      const sortedUnrevealedSeeds = unrevealedWithSignatures.sort((a, b) => 
+        parseInt(b.tokenId) - parseInt(a.tokenId)
+      );
+      
       // Store data in pagination system
-      UNREVEALED_PAGINATION.data = unrevealedWithSignatures;
-      UNREVEALED_PAGINATION.totalItems = unrevealedWithSignatures.length;
+      UNREVEALED_PAGINATION.data = sortedUnrevealedSeeds;
+      UNREVEALED_PAGINATION.totalItems = sortedUnrevealedSeeds.length;
       UNREVEALED_PAGINATION.currentPage = 1; // Reset to first page
       
       displayUnrevealedTablePaginated();

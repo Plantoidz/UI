@@ -1,13 +1,6 @@
 import { NETWORKS, DEFAULT_NETWORK, PLANTOID_CONFIG, NETWORK_STORAGE } from "../config.js";
 
-// Rate limiting configuration to prevent Infura rate limit errors
-const RATE_LIMIT_CONFIG = {
-  maxConcurrent: 3, // Maximum concurrent requests to Infura
-  delayBetweenBatches: 1000, // Milliseconds between batches
-  batchSize: 5, // NFTs per batch
-  retryDelay: 2000, // Delay before retrying failed requests
-  randomDelay: 200, // Max random delay to spread requests
-};
+// Note: Rate limiting configuration removed - no longer needed with subgraph approach
 
 
 // Permanent TokenURI caching system - network-aware and never expires
@@ -97,38 +90,7 @@ function getCurrentNetworkConfig() {
   return NETWORKS[currentNetwork];
 }
 
-// Cached tokenURI function to reduce API calls
-async function getCachedTokenURI(contract, tokenId) {
-  const networkConfig = getCurrentNetworkConfig();
-
-  // Try to get from cache first
-  const cachedURI = TOKEN_URI_CACHE.get(
-    networkConfig.plantoidAddress,
-    tokenId,
-    currentNetwork
-  );
-  if (cachedURI) {
-    return cachedURI;
-  }
-
-  // Not in cache, fetch from contract
-  try {
-    const tokenURI = await contract.tokenURI(tokenId);
-
-    // Store in cache
-    TOKEN_URI_CACHE.set(
-      networkConfig.plantoidAddress,
-      tokenId,
-      currentNetwork,
-      tokenURI
-    );
-
-    return tokenURI;
-  } catch (error) {
-    console.error(`Failed to fetch tokenURI for token ${tokenId}:`, error);
-    throw error;
-  }
-}
+// Note: getCachedTokenURI function removed - no longer needed with subgraph approach
 
 // Generate OpenSea URL for NFT
 function getOpenSeaUrl(contractAddress, tokenId, isTestnet) {
@@ -255,6 +217,86 @@ async function queryMetadataSubgraph(plantoidAddress) {
   }
 }
 
+// Query revealed seeds from subgraph
+async function queryRevealedSeeds(plantoidAddress) {
+  try {
+    const mainSubgraphs = {
+      sepolia: "https://api.studio.thegraph.com/query/68539/plantoid-sep/3",
+      mainnet: "https://gateway-arbitrum.network.thegraph.com/api/5aa71d6a9735426594a4f8c82de56afc/subgraphs/id/HCzhXN9mNjupmWemF6NsTmuoYFUonfwSmjHJ5MC8z3Rq",
+    };
+
+    const subgraphUrl = mainSubgraphs[currentNetwork];
+    if (!subgraphUrl) {
+      console.log(`No subgraph configured for ${currentNetwork}`);
+      return [];
+    }
+
+    const query = `
+      query getRevealedSeeds($plantoidId: String!) {
+        plantoidInstance(id: $plantoidId) {
+          id
+          seeds(first: 1000, where: {revealed: true}) {
+            id
+            tokenId
+            uri
+            revealed
+          }
+        }
+      }
+    `;
+
+    console.log("🔍 Querying revealed seeds...");
+    const response = await fetch(subgraphUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        query,
+        variables: { plantoidId: plantoidAddress.toLowerCase() },
+      }),
+    });
+
+    const result = await response.json();
+    if (result.errors) {
+      console.error("Revealed seeds query errors:", result.errors);
+      return [];
+    }
+
+    const revealedSeeds = result.data?.plantoidInstance?.seeds || [];
+    console.log(`📊 Found ${revealedSeeds.length} revealed seeds`);
+    return revealedSeeds;
+  } catch (error) {
+    console.error("Error querying revealed seeds:", error);
+    return [];
+  }
+}
+
+// Pre-fetch IPFS metadata for revealed seeds
+async function fetchIPFSMetadata(seeds) {
+  const ipfsContent = {};
+  
+  for (const seed of seeds) {
+    if (!seed.uri) continue;
+    
+    try {
+      // Convert IPFS URI to HTTP gateway URL
+      const ipfsHash = seed.uri.replace("ipfs://", "");
+      const metadataUrl = `https://ipfs.io/ipfs/${ipfsHash}`;
+      
+      console.log(`📥 Fetching metadata for seed ${seed.tokenId}`);
+      const response = await fetch(metadataUrl);
+      if (response.ok) {
+        const metadata = await response.json();
+        ipfsContent[seed.id] = metadata;
+      }
+    } catch (error) {
+      console.error(`Failed to fetch metadata for seed ${seed.tokenId}:`, error);
+    }
+  }
+  
+  console.log(`📦 Pre-fetched metadata for ${Object.keys(ipfsContent).length} seeds`);
+  return ipfsContent;
+}
+
 // Load ABI from JSON file
 async function loadABI() {
   try {
@@ -313,7 +355,7 @@ function updateNetworkIndicator() {
   }
 }
 
-// Load all NFTs
+// Load all NFTs using subgraph approach (much faster)
 async function loadNFTs() {
   const loadingMessage = document.getElementById("loading-message");
   const errorMessage = document.getElementById("error-message");
@@ -324,86 +366,75 @@ async function loadNFTs() {
     errorMessage.style.display = "none";
     gallery.innerHTML = "";
 
-    // Get total supply
-    const totalSupply = await contract.totalSupply();
-    document.getElementById("total-seeds").textContent = totalSupply.toString();
+    loadingMessage.textContent = "Loading revealed NFTs with videos...";
 
-    if (totalSupply === 0n) {
-      loadingMessage.textContent = "No NFTs minted yet";
+    const networkConfig = getCurrentNetworkConfig();
+    
+    // Query revealed seeds from subgraph
+    const revealedSeeds = await queryRevealedSeeds(networkConfig.plantoidAddress);
+    
+    if (revealedSeeds.length === 0) {
+      loadingMessage.textContent = "No revealed NFTs with videos found";
       return;
     }
 
-    loadingMessage.textContent = "Loading revealed NFTs with videos...";
+    // Pre-fetch IPFS metadata for all revealed seeds
+    const ipfsContent = await fetchIPFSMetadata(revealedSeeds);
 
-    // Load NFTs with rate limiting to avoid Infura's request limits
-    const totalNFTs = Number(totalSupply);
-    const {
-      maxConcurrent,
-      delayBetweenBatches,
-      batchSize,
-      retryDelay,
-      randomDelay,
-    } = RATE_LIMIT_CONFIG;
-
-    // Process NFTs in controlled batches
-    for (let batchStart = totalNFTs; batchStart >= 1; batchStart -= batchSize) {
-      const batchEnd = Math.max(1, batchStart - batchSize + 1);
-      const batchPromises = [];
-
-      // Create promises for this batch
-      for (let i = batchStart; i >= batchEnd && i >= 1; i--) {
-        const loadNFT = async (tokenId) => {
-          try {
-            // Add small random delay to spread out requests
-            await new Promise((resolve) =>
-              setTimeout(resolve, Math.random() * randomDelay)
-            );
-
-            const tokenURI = await getCachedTokenURI(contract, tokenId);
-            await displayNFT(tokenId, tokenURI);
-          } catch (error) {
-            if (
-              error.code === "BAD_DATA" ||
-              error.message?.includes("Too Many Requests") ||
-              error.message?.includes("429")
-            ) {
-              // Wait longer and retry once
-              await new Promise((resolve) => setTimeout(resolve, retryDelay));
-              try {
-                const tokenURI = await getCachedTokenURI(contract, tokenId);
-                await displayNFT(tokenId, tokenURI);
-              } catch (retryError) {
-                console.error(
-                  `Failed to load NFT #${tokenId} after retry:`,
-                  retryError.message
-                );
-              }
-            } else {
-              console.error(`Error loading NFT #${tokenId}:`, error.message);
-            }
-          }
-        };
-
-        batchPromises.push(loadNFT(i));
+    // Process and display NFTs with videos
+    const nftsWithVideos = [];
+    
+    revealedSeeds.forEach(seed => {
+      const metadata = ipfsContent[seed.id];
+      if (metadata && metadata.animation_url) {
+        // Convert IPFS URL to HTTP gateway URL
+        const animationUrl = metadata.animation_url.startsWith("ipfs://") 
+          ? "https://ipfs.io/ipfs/" + metadata.animation_url.replace("ipfs://", "")
+          : metadata.animation_url;
+        
+        nftsWithVideos.push({
+          tokenId: seed.tokenId,
+          animationUrl: animationUrl,
+          imageUrl: metadata.image ? (metadata.image.startsWith("ipfs://") 
+            ? "https://ipfs.io/ipfs/" + metadata.image.replace("ipfs://", "")
+            : metadata.image) : ""
+        });
       }
+    });
 
-      // Process batch with limited concurrency
-      const results = [];
-      for (let i = 0; i < batchPromises.length; i += maxConcurrent) {
-        const chunk = batchPromises.slice(i, i + maxConcurrent);
-        results.push(...(await Promise.allSettled(chunk)));
-      }
+    // Sort by tokenId descending (highest first)
+    nftsWithVideos.sort((a, b) => parseInt(b.tokenId) - parseInt(a.tokenId));
 
-      // Wait before next batch to respect rate limits
-      if (batchEnd > 1) {
-        await new Promise((resolve) =>
-          setTimeout(resolve, delayBetweenBatches)
-        );
-      }
-    }
+    // Display NFTs
+    nftsWithVideos.forEach(nft => {
+      const openSeaUrl = getOpenSeaUrl(
+        networkConfig.plantoidAddress,
+        nft.tokenId,
+        networkConfig.isTestnet
+      );
 
-    // Check if any NFTs were displayed
-    if (gallery.children.length === 0) {
+      const nftLink = document.createElement("a");
+      nftLink.href = openSeaUrl;
+      nftLink.target = "_blank";
+      nftLink.rel = "noopener noreferrer";
+      nftLink.className = "nft-card";
+
+      nftLink.innerHTML = `
+        <div class="nft-image-container">
+          <video src="${nft.animationUrl}" class="nft-media nft-video" 
+                 controls autoplay muted loop playsinline
+                 poster="${nft.imageUrl}">
+          </video>
+        </div>
+        <div class="nft-info">
+          <div class="nft-seed-number">Seed #${nft.tokenId}</div>
+        </div>
+      `;
+
+      gallery.appendChild(nftLink);
+    });
+
+    if (nftsWithVideos.length === 0) {
       loadingMessage.textContent = "No revealed NFTs with videos found";
       loadingMessage.style.display = "block";
     } else {
@@ -415,143 +446,7 @@ async function loadNFTs() {
   }
 }
 
-// Display a single NFT
-async function displayNFT(tokenId, tokenURI) {
-  const gallery = document.getElementById("nft-gallery");
-
-  // Create NFT card temporarily (not added to DOM yet)
-  const nftCard = document.createElement("div");
-  nftCard.className = "nft-card";
-
-  try {
-    // Fetch metadata from tokenURI
-    let metadata;
-    
-    // Trim whitespace from tokenURI (some contracts return URIs with leading/trailing spaces)
-    const cleanTokenURI = tokenURI.trim();
-
-    if (cleanTokenURI.startsWith("data:application/json;base64,")) {
-      // Handle base64 encoded metadata
-      const base64Data = cleanTokenURI.split(",")[1];
-      const jsonString = atob(base64Data);
-      metadata = JSON.parse(jsonString);
-    } else if (cleanTokenURI.startsWith("ipfs://")) {
-      // Handle IPFS URIs
-      const ipfsGateway = "https://ipfs.io/ipfs/";
-      const ipfsHash = cleanTokenURI.replace("ipfs://", "");
-      const httpUrl = ipfsGateway + ipfsHash;
-      
-      try {
-        const response = await fetch(httpUrl);
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-        metadata = await response.json();
-      } catch (fetchError) {
-        console.error(`Failed to fetch IPFS metadata for token ${tokenId}:`, fetchError);
-        throw new Error(`IPFS fetch failed: ${fetchError.message}`);
-      }
-    } else {
-      // Handle regular HTTP URIs
-      try {
-        const response = await fetch(cleanTokenURI);
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-        metadata = await response.json();
-      } catch (fetchError) {
-        console.error(`Failed to fetch metadata for token ${tokenId}:`, fetchError);
-        throw new Error(`HTTP fetch failed: ${fetchError.message}`);
-      }
-    }
-
-    // Update card with metadata
-    let imageUrl = metadata.image || "";
-    let animationUrl = metadata.animation_url || "";
-
-    // Convert IPFS URLs to HTTP gateway URLs
-    if (imageUrl.startsWith("ipfs://")) {
-      imageUrl = "https://ipfs.io/ipfs/" + imageUrl.replace("ipfs://", "");
-    }
-    if (animationUrl.startsWith("ipfs://")) {
-      animationUrl =
-        "https://ipfs.io/ipfs/" + animationUrl.replace("ipfs://", "");
-    }
-
-    // Check if this is a revealed seed
-    // Revealed seeds will have animation_url (all revealed seeds are videos)
-    // Also check for other indicators of unrevealed NFTs
-    const isUnrevealed =
-      !animationUrl ||
-      metadata.name?.toLowerCase().includes("unrevealed") ||
-      metadata.description?.toLowerCase().includes("unrevealed") ||
-      metadata.image?.includes("unrevealed");
-
-    if (isUnrevealed) {
-      // Unrevealed seed, skip this NFT
-      return;
-    }
-
-    // Create video element and verify it loads successfully
-    const video = document.createElement("video");
-    video.src = animationUrl;
-    video.muted = true;
-    video.autoplay = true;
-    video.loop = true;
-    video.playsinline = true;
-    video.controls = true;
-
-    // Set up load handlers
-    const loadPromise = new Promise((resolve, reject) => {
-      video.onloadedmetadata = () => resolve(true);
-      video.onerror = () => reject(new Error("Video failed to load"));
-
-      // Timeout after 10 seconds
-      setTimeout(() => reject(new Error("Video load timeout")), 10000);
-    });
-
-    try {
-      // Wait for video to load successfully
-      await loadPromise;
-
-      // Video loaded successfully, create the card as a clickable link
-      const networkConfig = getCurrentNetworkConfig();
-      const openSeaUrl = getOpenSeaUrl(
-        networkConfig.plantoidAddress,
-        tokenId,
-        networkConfig.isTestnet
-      );
-
-      // Create clickable link wrapper
-      const nftLink = document.createElement("a");
-      nftLink.href = openSeaUrl;
-      nftLink.target = "_blank";
-      nftLink.rel = "noopener noreferrer";
-      nftLink.className = "nft-card";
-
-      nftLink.innerHTML = `
-                <div class="nft-image-container">
-                    <video src="${animationUrl}" class="nft-media nft-video" 
-                           controls autoplay muted loop playsinline
-                           poster="${imageUrl}">
-                    </video>
-                </div>
-                <div class="nft-info">
-                    <div class="nft-seed-number">Seed #${tokenId}</div>
-                </div>
-            `;
-
-      // Add to gallery only if video loaded successfully
-      gallery.appendChild(nftLink);
-    } catch (videoError) {
-      // Video failed to load, skip this NFT
-      return;
-    }
-  } catch (error) {
-    // Skip NFTs that fail to load metadata
-    return;
-  }
-}
+// Note: displayNFT function removed - no longer needed with subgraph approach
 
 // Show error message
 function showError(message) {
@@ -693,30 +588,8 @@ async function loadUnrevealedNFTs() {
       const notRevealed = !seed.revealed;
 
       if (notRevealed && hasSignature) {
-        // Double-check by querying the actual token URI from the contract
-        try {
-          const currentUri = await getCachedTokenURI(contract, seed.tokenId);
-          const isActuallyRevealed = currentUri === seed.revealedUri;
-
-          console.log(
-            `🔍 Seed ${seed.tokenId}: subgraph revealed=${seed.revealed}, hasSignature=${hasSignature}, actuallyRevealed=${isActuallyRevealed}`
-          );
-
-          if (!isActuallyRevealed) {
-            unrevealedWithSignatures.push(seed);
-          } else {
-            console.log(
-              `⚠️ Seed ${seed.tokenId} is already revealed on-chain but subgraph shows unrevealed`
-            );
-          }
-        } catch (error) {
-          console.log(
-            `⚠️ Could not check on-chain status for seed ${seed.tokenId}:`,
-            error.message
-          );
-          // If we can't check, include it anyway
-          unrevealedWithSignatures.push(seed);
-        }
+        // Trust subgraph data (more efficient than contract calls)
+        unrevealedWithSignatures.push(seed);
       } else {
         console.log(
           `🔍 Seed ${seed.tokenId}: revealed=${seed.revealed}, hasSignature=${hasSignature}, revealedSignature=${seed.revealedSignature}`
@@ -903,19 +776,7 @@ window.revealNFT = async function (tokenId, revealedUri, revealedSignature) {
       signer
     );
 
-    // Check if token is already revealed
-    try {
-      const currentUri = await getCachedTokenURI(plantoidContract, tokenId);
-      console.log("📄 Current token URI:", currentUri);
-
-      // If the current URI already contains the revealed content, it might already be revealed
-      if (currentUri === revealedUri) {
-        alert("This NFT appears to already be revealed!");
-        return;
-      }
-    } catch (error) {
-      console.log("⚠️ Could not check current token URI:", error.message);
-    }
+    // Note: Skip checking if already revealed - trust subgraph data for efficiency
 
     console.log("🔗 Contract call details:", {
       contractAddress: networkConfig.plantoidAddress,

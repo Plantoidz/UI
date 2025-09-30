@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plantoid 15</title>
+    <link href="https://fonts.googleapis.com/css2?family=Lato:wght@300&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="plantoid.css">
+</head>
+<body>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"   type="application/javascript"></script>
+    <script>
+        console.log('Ethers loaded:', typeof ethers !== 'undefined');
+    </script>
+
+    <script type="module" src="modules/web3utils.js" defer > </script>
+
+
+    <div class="background-pattern"></div>
+    
+    <div class="container">
+        <header class="header">
+            <h1 class="title">PLANTOID 14</h1>
+        </header>
+
+        <div class="main-content">
+            <div class="plantoid-card">
+                <div class="plantoid-image"></div>
+                
+                <div class="plantoid-stats">
+                    <div class="stat-item">
+                        <span class="stat-label">Total seeds in circulation:</span>
+                        <span class="stat-value" id="total-seeds"></span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Seeds owned by you:</span>
+                        <span class="stat-value" id="your-seeds"></span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Smart Contract:</span>
+                        <span class="stat-value" id="contract-address" style="cursor: pointer;"></span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Artist:</span>
+                        <span class="stat-value" id="artist-address" style="cursor: pointer;"></span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Current Balance:</span>
+                        <span class="stat-value" id="current-balance"></span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Required Threshold:</span>
+                        <span class="stat-value">5.0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Currently in Escrow:</span>
+                        <span class="stat-value">0.0</span>
+                    </div>
+                </div>
+
+                <button class="feed-button">Feed the Plantoid</button>
+                <div class="feed-button-small">Whenever you feed the Plantoid with cryptocurrency, you acquire a digital seed (NFT) with personalised artwork</div>
+            </div>
+
+            <script type="module">
+                import { feedPlantoid } from './modules/web3utils.js';
+        
+                // Feed button interaction
+                document.querySelector('.feed-button').addEventListener('click', function() {
+                    this.textContent = 'Feeding...';
+                    this.style.background = 'linear-gradient(45deg, #16a085, #27ae60)';
+                    feedPlantoid("0.001");
+                    setTimeout(() => {
+                        this.textContent = 'Feed the Plantoid';
+                        this.style.background = 'linear-gradient(45deg, #1a1a2e, #16213e)';
+                    }, 2000);
+                });
+            </script>
+
+            <div class="info-section">
+                <div class="title-small">PLANTOID 14: enigmatic poet with solarpunk vibes</div>
+                
+                <div class="contributors">
+                    Plantoids are the plant equivalent of an android; a robot or a synthetic organism designed to look, act and grow like a plant.
+
+                    Plantoids are blockchain-based life-forms that live off crypto-currency. They are:
+                    <ul>
+                    <li class="bullet-item">autonomous, i.e. not controlled by anyone,</li>
+                    <li class="bullet-item">self-sufficient as they survive on their own,</li>
+                    <li class="bullet-item">capable of reproducing themselves.</li>
+                    </ul>
+                    Yet, like most plants, Plantoids cannot reproduce themselves on their own. They rely on capitalisation (as opposed to pollinisation) to reproduce.<br/>
+                    Plantoids collect crypto-currency and then use the collected funds to hire new artists, commissioned to create new replicas of themselves via an evolutionary algorithm.<br/>
+                    <br/>
+                    Every time you feed this Plantoid, it will come alive and engage in a conversation with you. It will then generate an oracle for you, in the form of a poem, and will illustrate this poem with generative AI. The result will be minted as an NFT and be sent back to you, as a sign of gratitude for your contribution to the Plantoid species.<br/>
+                </div>
+
+                <div class="contributors">
+                    <h3>Contributors</h3>
+                    <div class="contributor-item">Plantoid #14 was born out of the contribution of many friends and colleagues, which I am deeply appreciative of.</div>
+                    <div class="contributor-item">These include, in particular:</div>
+                    <ul>
+                        <li class="bullet-item">Yannick LaDaniel — body art and design</li>
+                        <li class="bullet-item">Martin Vert — electronics wiz</li>
+                        <li class="bullet-item">Isaac Patka — smart contract architecture</li>
+                        <li class="bullet-item">Ben Moskowitz — Artificial Intelligence</li>
+                        <li class="bullet-item">0xGiulio - smart contract refactoring</li>
+                        <li class="bullet-item">Tony Lai — for donating the voice</li>
+                        <li class="bullet-item">All members of the GLITCH community who made me believe that everything is possible</li>
+                </div>
+            </div>
+        </div>
+
+        <!-- <section class="gallery-section">
+            <h2 class="section-title">GALLERY</h2>
+            <p class="section-subtitle">Here you can see all of its digital NFT seeds</p>
+            
+            <div class="gallery-grid">
+                <div class="nft-seed">Seed #1</div>
+                <div class="nft-seed">Seed #2</div>
+                <div class="nft-seed">Seed #3</div>
+                <div class="nft-seed">Seed #4</div>
+                <div class="nft-seed">Seed #5</div>
+                <div class="nft-seed">Seed #6</div>
+                <div class="nft-seed">Seed #7</div>
+                <div class="nft-seed">Seed #8</div>
+                <div class="nft-seed">Seed #9</div>
+                <div class="nft-seed">Seed #10</div>
+                <div class="nft-seed">Seed #11</div>
+                <div class="nft-seed">Seed #12</div>
+                <div class="nft-seed empty">+</div>
+                <div class="nft-seed empty">+</div>
+                <div class="nft-seed empty">+</div>
+                <div class="nft-seed empty">+</div>
+                <div class="nft-seed empty">+</div>
+                <div class="nft-seed empty">+</div>
+                <div class="nft-seed empty">+</div>
+                <div class="nft-seed empty">+</div>
+            </div>
+        </section>
+
+        <section class="claim-section">
+            <h2 class="claim-title">Claim NFTs</h2>
+            <p class="claim-subtitle">Reveal your own NFTs</p>
+            
+            <div class="claim-table">
+                <div class="table-header">
+                    <div>Holder</div>
+                    <div>Seed</div>
+                    <div>Reveal NFT</div>
+                    <div>View NFT</div>
+                </div>
+                <div class="table-row">
+                    <div>etherscan.eth</div>
+                    <div>65</div>
+                    <div><button class="action-button">Reveal</button></div>
+                    <div><button class="action-button">View</button></div>
+                </div>
+                <div class="table-row">
+                    <div>0x7bc...ab7B</div>
+                    <div>64</div>
+                    <div><button class="action-button">Reveal</button></div>
+                    <div><button class="action-button">View</button></div>
+                </div>
+                <div class="table-row">
+                    <div>etherscan.eth</div>
+                    <div>63</div>
+                    <div><button class="action-button">Reveal</button></div>
+                    <div><button class="action-button">View</button></div>
+                </div>
+                <div class="table-row">
+                    <div>minnod.eth</div>
+                    <div>62</div>
+                    <div><button class="action-button">Reveal</button></div>
+                    <div><button class="action-button">View</button></div>
+                </div>
+                <div class="table-row">
+                    <div>0x7bcd...ab94</div>
+                    <div>61</div>
+                    <div><button class="action-button">Reveal</button></div>
+                    <div><button class="action-button">View</button></div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        // Add some interactive effects
+        document.querySelectorAll('.nft-seed:not(.empty)').forEach(seed => {
+            seed.addEventListener('click', function() {
+                this.style.background = `linear-gradient(135deg, #${Math.floor(Math.random()*16777215).toString(16)}, #${Math.floor(Math.random()*16777215).toString(16)})`;
+            });
+        });
+
+        // Add hover effects for buttons
+        document.querySelectorAll('.action-button').forEach(button => {
+            button.addEventListener('click', function() {
+                this.style.transform = 'scale(0.95)';
+                setTimeout(() => {
+                    this.style.transform = 'translateY(-1px)';
+                }, 100);
+            });
+        });
+    </script> -->
+
+
+</body>
+</html>

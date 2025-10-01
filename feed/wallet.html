@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Plantoid 14 - Wallet</title>
+    <link href="https://fonts.googleapis.com/css2?family=Lato:wght@300&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background:
+                linear-gradient(135deg, rgba(10, 10, 26, 0.8) 0%, rgba(26, 26, 46, 0.8) 50%, rgba(22, 33, 62, 0.8) 100%),
+                url('./assets/header2.png') no-repeat top right fixed,
+                black;
+            color: #ffffff;
+            font-family: 'Lato', sans-serif;
+            line-height: 1.6;
+            min-height: 100vh;
+            overflow-x: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .background-pattern {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background:
+                radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+                radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+            background-size: 50px 50px;
+            z-index: -1;
+        }
+
+        .container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 1rem;
+            max-width: 500px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 1rem;
+            margin-top: 0.5rem;
+        }
+
+        .title {
+            font-family: 'Lato', sans-serif;
+            font-size: 2rem;
+            font-weight: 50;
+            letter-spacing: 0.3em;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(45deg, #ffffff, #a0a0a0);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .subtitle {
+            font-size: 0.7rem;
+            color: #a0a0a0;
+            font-weight: 300;
+            letter-spacing: 0.1em;
+        }
+
+        .plantoid-card {
+            background: linear-gradient(145deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05));
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 20px;
+            padding: 2rem;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .plantoid-image {
+            width: 150px;
+            height: 150px;
+            margin: 0 auto 1rem;
+            background: url('./assets/P14.jpg') center/cover;
+            border-radius: 15px;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            transition: transform 0.3s ease;
+        }
+
+        .plantoid-image:hover {
+            transform: scale(1.02);
+        }
+
+        .plantoid-stats {
+            margin-bottom: 1rem;
+        }
+
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+            font-size: 0.75rem;
+            padding: 0.3rem 0;
+        }
+
+        .stat-item:last-child {
+            border-bottom: none;
+        }
+
+        .stat-label {
+            color: #a0a0a0;
+            text-transform: uppercase;
+            font-size: 0.65rem;
+            letter-spacing: 0.08em;
+        }
+
+        .stat-value {
+            color: #ffffff;
+            font-weight: bold;
+            font-size: 0.7rem;
+        }
+
+        .wallet-section {
+            margin-bottom: 1rem;
+            padding: 0.8rem;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+        }
+
+        .wallet-address {
+            text-align: center;
+            font-size: 0.75rem;
+            color: #ffffff;
+            word-break: break-all;
+            font-weight: bold;
+        }
+
+        .feed-button {
+            width: 100%;
+            padding: 2rem;
+            background: linear-gradient(145deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.08));
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 15px;
+            color: #ffffff;
+            font-size: 1.8rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.2em;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            position: relative;
+            overflow: hidden;
+            animation: pulse 3s ease-in-out infinite;
+        }
+
+        .feed-button::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.2);
+            transform: translate(-50%, -50%);
+            transition: width 0.6s ease-out, height 0.6s ease-out;
+            z-index: 0;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3), 0 0 20px rgba(255, 255, 255, 0.1);
+            }
+            50% {
+                box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3), 0 0 40px rgba(255, 255, 255, 0.3);
+            }
+        }
+
+        .feed-button:hover::before {
+            width: 400px;
+            height: 400px;
+        }
+
+        .feed-button:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(255, 255, 255, 0.2);
+        }
+
+        .feed-button:active {
+            transform: translateY(-2px);
+        }
+
+        .feed-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+            animation: none;
+        }
+
+        .feed-button span {
+            position: relative;
+            z-index: 1;
+        }
+
+        .description {
+            text-align: center;
+            font-size: 0.85rem;
+            color: #a0a0a0;
+            line-height: 1.6;
+            margin-top: 1.5rem;
+            margin-bottom: 0;
+            letter-spacing: 0.12em;
+            font-family: 'Lato', sans-serif;
+        }
+
+        .info-box {
+            margin-top: 1.5rem;
+            padding: 2rem;
+            background: linear-gradient(145deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.06));
+            border-radius: 15px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        .info-title {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: #ffffff;
+            margin-bottom: 1.2rem;
+            text-transform: uppercase;
+            letter-spacing: 0.2em;
+        }
+
+        .info-text {
+            font-size: 0.95rem;
+            color: #e0e0e0;
+            line-height: 1.8;
+            margin-bottom: 1rem;
+        }
+
+        .info-text strong {
+            color: #ffffff;
+        }
+
+        .info-link {
+            display: inline-block;
+            margin-top: 1rem;
+            padding: 0.8rem 1.5rem;
+            font-size: 0.9rem;
+            color: #ffffff;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        .info-link:hover {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.5);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(255, 255, 255, 0.2);
+        }
+
+        .loading {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
+        @media (max-width: 360px) {
+            .title {
+                font-size: 1.5rem;
+            }
+
+            .plantoid-image {
+                width: 100px;
+                height: 100px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="background-pattern"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js" type="application/javascript"></script>
+
+    <div class="container">
+        <header class="header">
+            <h1 class="title">PLANTOID 14</h1>
+            <p class="subtitle">enigmatic poet with solarpunk vibes</p>
+        </header>
+
+        <div class="plantoid-card">
+            <div class="plantoid-image"></div>
+
+            <div class="plantoid-stats">
+                <div class="stat-item">
+                    <span class="stat-label">Total Seeds in Circulation:</span>
+                    <span class="stat-value" id="total-seeds">--</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Seeds Owned by You:</span>
+                    <span class="stat-value" id="your-seeds">--</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Smart Contract:</span>
+                    <span class="stat-value" id="contract-address">0x3C65...C8C</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Current Balance:</span>
+                    <span class="stat-value" id="balance">--</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Required Threshold:</span>
+                    <span class="stat-value">5.0 ETH</span>
+                </div>
+            </div>
+
+            <div class="wallet-section">
+                <div class="wallet-address" id="wallet-address">Initializing...</div>
+            </div>
+
+            <button class="feed-button" id="feed-btn" disabled>
+                <span>🌱 Feed the Plantoid 🌱</span>
+            </button>
+
+            <div class="info-box">
+                <div class="info-title">What is a Plantoid?</div>
+                <p class="info-text">
+                    I'm a <strong>PLANTOID</strong>, a blockchain-based life form. I feed off cryptocurrency to reproduce myself…
+                </p>
+                <p class="info-text">
+                    Plantoids are synthetic lifeforms that live on the Ethereum blockchain. Humans pollinate them with cryptocurrency to collect their digital seed: a unique NFT created by the Plantoid with blockchain and generative AI.
+                </p>
+                <a href="https://www.plantoid.org" target="_blank" class="info-link">
+                    Learn more at plantoid.org →
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        const SEPOLIA_CONTRACT = "0x3C6570206bB6b3BCbEc27643CBc89003a25caC8C";
+        const INFURA_PROJECT_ID = "460f40a260564ac4a4f4b3fffb032dad";
+        const FEED_AMOUNT = "0.001";
+
+
+        const FUNNY = "0x61c5ed909c63d9348bee0f3e29f8d0c12673e4ce37dca43896a1537c81437730"
+        let provider;
+        let signer;
+        let contract;
+        let userAddress;
+
+        // Contract ABI - minimal for what we need
+        const ABI = [
+            "function totalSupply() view returns (uint256)",
+            "function balanceOf(address owner) view returns (uint256)",
+            "function artist() view returns (address)",
+            "event FundReceived(address indexed donor, uint256 amount)"
+        ];
+
+        // Load blockchain stats
+        async function loadStats() {
+            try {
+                if (!contract || !provider) {
+                    console.log('Provider or contract not initialized');
+                    return;
+                }
+
+                // Get contract balance using provider
+                const balanceWei = await provider.getBalance(SEPOLIA_CONTRACT);
+                document.getElementById('balance').textContent = `${ethers.formatEther(balanceWei)} ETH`;
+
+                // Try to get total supply and user seeds if contract supports it
+                try {
+                    const totalSupply = await contract.totalSupply();
+                    document.getElementById('total-seeds').textContent = totalSupply.toString();
+                } catch (e) {
+                    document.getElementById('total-seeds').textContent = 'N/A';
+                }
+
+                if (userAddress) {
+                    try {
+                        const userSeeds = await contract.balanceOf(userAddress);
+                        document.getElementById('your-seeds').textContent = userSeeds.toString();
+                    } catch (e) {
+                        document.getElementById('your-seeds').textContent = 'N/A';
+                    }
+                } else {
+                    document.getElementById('your-seeds').textContent = '--';
+                }
+            } catch (error) {
+                console.error('Failed to load stats:', error);
+            }
+        }
+
+        // Initialize with private key
+        async function initializeWithPrivateKey() {
+            const feedBtn = document.getElementById('feed-btn');
+            const addressDiv = document.getElementById('wallet-address');
+
+            try {
+                addressDiv.textContent = 'Connecting...';
+
+                // Check if private key is configured
+                if (!FUNNY) {
+                    throw new Error('FUNNY not configured. Please edit the FUNNY in the source code.');
+                }
+
+                // Create provider and signer from private key
+                provider = new ethers.JsonRpcProvider(`https://sepolia.infura.io/v3/${INFURA_PROJECT_ID}`);
+                signer = new ethers.Wallet(FUNNY, provider);
+                userAddress = await signer.getAddress();
+                contract = new ethers.Contract(SEPOLIA_CONTRACT, ABI, signer);
+
+                // Update UI
+                addressDiv.textContent = `Connected: ${userAddress.slice(0, 6)}...${userAddress.slice(-4)}`;
+                feedBtn.disabled = false;
+
+                await loadStats();
+
+                console.log('✓ Connected with address:', userAddress);
+
+            } catch (error) {
+                console.error('Failed to initialize:', error);
+                addressDiv.textContent = '✗ Failed to connect';
+                alert(`Failed to initialize wallet.\n\nError: ${error.message}\n\nPlease check the console for details.`);
+            }
+        }
+
+        // Feed the Plantoid
+        async function feedPlantoid() {
+            const btn = document.getElementById('feed-btn');
+
+            try {
+                btn.textContent = 'Feeding...';
+                btn.disabled = true;
+                btn.classList.add('loading');
+
+                // Send transaction directly to contract address
+                const tx = await signer.sendTransaction({
+                    to: SEPOLIA_CONTRACT,
+                    value: ethers.parseEther(FEED_AMOUNT)
+                });
+
+                console.log('Transaction sent:', tx.hash);
+                btn.textContent = 'Confirming...';
+
+                const receipt = await tx.wait();
+                console.log('Transaction confirmed:', receipt);
+
+                btn.textContent = '✓ Fed!';
+                btn.style.background = 'linear-gradient(45deg, #16a085, #27ae60)';
+
+                await loadStats();
+
+                setTimeout(() => {
+                    btn.textContent = 'Feed the Plantoid';
+                    btn.style.background = 'linear-gradient(45deg, #1a1a2e, #16213e)';
+                    btn.disabled = false;
+                    btn.classList.remove('loading');
+                }, 3000);
+
+            } catch (error) {
+                console.error('Failed to feed:', error);
+                alert(`Transaction failed.\n\nError: ${error.message}`);
+                btn.textContent = 'Feed the Plantoid';
+                btn.style.background = 'linear-gradient(45deg, #1a1a2e, #16213e)';
+                btn.disabled = false;
+                btn.classList.remove('loading');
+            }
+        }
+
+        // Event listeners
+        document.getElementById('feed-btn').addEventListener('click', feedPlantoid);
+
+        // Auto-connect on page load
+        window.addEventListener('load', async () => {
+            await initializeWithPrivateKey();
+        });
+    </script>
+</body>
+</html>

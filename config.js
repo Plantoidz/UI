@@ -21,7 +21,7 @@ export const PLANTOID_CONFIG = {
   subtitle: "enigmatic poet with solarpunk vibes",
 
   // Visual assets
-  image: "./assets/P14.png", // Path to plantoid image
+  image: "./assets/P14.jpg", // Path to plantoid image
   headerImage: "./assets/header2.png", // Path to header background
 
   // Contract addresses for each network

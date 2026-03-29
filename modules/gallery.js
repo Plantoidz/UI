@@ -107,8 +107,9 @@ async function queryMainSubgraph(plantoidAddress) {
     // Main subgraph endpoints (seeds, revealed status, holders)
     const mainSubgraphs = {
       sepolia: "https://api.studio.thegraph.com/query/68539/plantoid-sep/3",
-      mainnet:
-        "https://gateway-arbitrum.network.thegraph.com/api/5aa71d6a9735426594a4f8c82de56afc/subgraphs/id/HCzhXN9mNjupmWemF6NsTmuoYFUonfwSmjHJ5MC8z3Rq",
+      mainnet: "https://api.studio.thegraph.com/query/68539/plantoid-mainnet-v2/version/latest",
+       // "https://gateway-arbitrum.network.thegraph.com/api/5aa71d6a9735426594a4f8c82de56afc/subgraphs/id/HCzhXN9mNjupmWemF6NsTmuoYFUonfwSmjHJ5MC8z3Rq",
+      
     };
 
     const subgraphUrl = mainSubgraphs[currentNetwork];
@@ -190,7 +191,7 @@ async function queryMetadataSubgraph(plantoidAddress) {
             }
         `;
 
-    console.log("🔍 Querying metadata subgraph...");
+    console.log("🔍 Querying metadata subgraph... for plantoid-id : ", plantoidAddress.toLowerCase());
     const response = await fetch(subgraphUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -222,7 +223,8 @@ async function queryRevealedSeeds(plantoidAddress) {
   try {
     const mainSubgraphs = {
       sepolia: "https://api.studio.thegraph.com/query/68539/plantoid-sep/3",
-      mainnet: "https://gateway-arbitrum.network.thegraph.com/api/5aa71d6a9735426594a4f8c82de56afc/subgraphs/id/HCzhXN9mNjupmWemF6NsTmuoYFUonfwSmjHJ5MC8z3Rq",
+      mainnet: "https://api.studio.thegraph.com/query/68539/plantoid-mainnet-v2/version/latest",
+      // mainnet: "https://gateway-arbitrum.network.thegraph.com/api/5aa71d6a9735426594a4f8c82de56afc/subgraphs/id/HCzhXN9mNjupmWemF6NsTmuoYFUonfwSmjHJ5MC8z3Rq",
     };
 
     const subgraphUrl = mainSubgraphs[currentNetwork];

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Plantoid 13</title>
+    <title>Plantoid 17</title>
     <link href="https://fonts.googleapis.com/css2?family=Lato:wght@300&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="plantoid.css">
     <link rel="stylesheet" href="main-sidebar.css">
@@ -25,7 +25,7 @@
         <!-- Left Sidebar Navigation -->
         <nav class="sidebar-nav">
             <div class="logo">
-                <h1 class="plantoid-name">PLANTOID 13</h1>
+                <h1 class="plantoid-name">PLANTOID 17</h1>
             </div>
             <div class="nav-items">
                 <a href="index.html" class="sidebar-nav-link active">
@@ -151,7 +151,7 @@
             </script>
 
             <div class="info-section">
-                <div class="title-small">PLANTOID 13: DJ Plantoid</div>
+                <div class="title-small">PLANTOID 17: cyberpunk poet with futuristic vibes</div>
                 
                 <div class="contributors">
                     Plantoids are the plant equivalent of an android; a robot or a synthetic organism designed to look, act and grow like a plant.
@@ -170,7 +170,7 @@
 
                 <div class="contributors">
                     <h3>Contributors</h3>
-                    <div class="contributor-item">Plantoid #13 was born out of the contribution of many friends and colleagues, which I am deeply appreciative of.</div>
+                    <div class="contributor-item">Plantoid #17 was born out of the contribution of many friends and colleagues, which I am deeply appreciative of.</div>
                     <div class="contributor-item">These include, in particular:</div>
                     <ul>
                         <li class="bullet-item">Yannick LaDaniel — body art and design</li>

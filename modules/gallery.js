@@ -1,6 +1,15 @@
-import { NETWORKS, DEFAULT_NETWORK, PLANTOID_CONFIG, NETWORK_STORAGE } from "../config.js";
+import { NETWORKS, DEFAULT_NETWORK, PLANTOID_CONFIG, NETWORK_STORAGE, INDEXER_GRAPHQL_URL } from "../config.js";
 
-// Note: Rate limiting configuration removed - no longer needed with subgraph approach
+// Legacy subgraph endpoints — used as a fallback when the Ponder indexer is
+// unreachable or erroring (e.g. during initial sync). Per-network because The
+// Graph hosts a separate deployment per chain.
+const SUBGRAPH_URLS = {
+  sepolia: "https://api.studio.thegraph.com/query/68539/plantoid-sep/3",
+  mainnet:
+    "https://api.studio.thegraph.com/query/68539/plantoid-mainnet-v2/version/latest",
+};
+
+// Note: Rate limiting configuration removed - no longer needed with indexer approach
 
 
 // Permanent TokenURI caching system - network-aware and never expires
@@ -101,63 +110,127 @@ function getOpenSeaUrl(contractAddress, tokenId, isTestnet) {
   }
 }
 
-// Query main subgraph for seeds data
-async function queryMainSubgraph(plantoidAddress) {
-  try {
-    // Main subgraph endpoints (seeds, revealed status, holders)
-    const mainSubgraphs = {
-      sepolia: "https://api.studio.thegraph.com/query/68539/plantoid-sep/3",
-      mainnet: "https://api.studio.thegraph.com/query/68539/plantoid-mainnet-v2/version/latest",
-       // "https://gateway-arbitrum.network.thegraph.com/api/5aa71d6a9735426594a4f8c82de56afc/subgraphs/id/HCzhXN9mNjupmWemF6NsTmuoYFUonfwSmjHJ5MC8z3Rq",
-      
-    };
+// ---------- Seed query adapter (Ponder primary, subgraph fallback) ----------
+//
+// Both functions return the subgraph-shaped array:
+//   [{ id, tokenId, revealed, uri, holder: { address } }]
+//
+// fetchSeedsForPlantoid tries Ponder first; on network/HTTP error or any
+// `errors` field in the GraphQL response, it falls back to the legacy
+// subgraph for the current network. Per-result-shape normalization is
+// kept inside each backend function so the rest of the gallery code is
+// agnostic to the data source.
 
-    const subgraphUrl = mainSubgraphs[currentNetwork];
-    if (!subgraphUrl) {
-      console.log(`No main subgraph configured for ${currentNetwork}`);
-      return [];
+async function ponderFetchSeeds(plantoidAddress, { revealedOnly }) {
+  const where = revealedOnly
+    ? `{ plantoidId: $plantoidId, revealed: true }`
+    : `{ plantoidId: $plantoidId }`;
+  const query = `
+    query GetSeeds($plantoidId: String!) {
+      seeds(where: ${where}, limit: 1000) {
+        items {
+          id
+          tokenId
+          revealed
+          uri
+          holder { address }
+        }
+      }
     }
+  `;
+  const response = await fetch(INDEXER_GRAPHQL_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      query,
+      variables: { plantoidId: plantoidAddress.toLowerCase() },
+    }),
+  });
+  if (!response.ok) throw new Error(`Indexer HTTP ${response.status}`);
+  const result = await response.json();
+  if (result.errors) throw new Error(`Indexer GraphQL: ${JSON.stringify(result.errors)}`);
+  return result.data?.seeds?.items || [];
+}
 
+async function subgraphFetchSeeds(plantoidAddress, { revealedOnly }) {
+  const subgraphUrl = SUBGRAPH_URLS[currentNetwork];
+  if (!subgraphUrl) {
+    console.warn(`No subgraph fallback configured for ${currentNetwork}`);
+    return [];
+  }
+
+  if (revealedOnly) {
     const query = `
-            query getSeeds {
-                seeds(first: 1000) {
-                    id
-                    tokenId
-                    revealed
-                    holder {
-                        address
-                    }
-                }
-            }
-        `;
-
-    console.log("🔍 Querying main subgraph...");
+      query GetRevealedSeeds($plantoidId: String!) {
+        plantoidInstance(id: $plantoidId) {
+          seeds(first: 1000, where: {revealed: true}) {
+            id
+            tokenId
+            uri
+            revealed
+            holder { address }
+          }
+        }
+      }
+    `;
     const response = await fetch(subgraphUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ query }),
+      body: JSON.stringify({
+        query,
+        variables: { plantoidId: plantoidAddress.toLowerCase() },
+      }),
     });
-
+    if (!response.ok) throw new Error(`Subgraph HTTP ${response.status}`);
     const result = await response.json();
-    if (result.errors) {
-      console.error("Main subgraph errors:", result.errors);
+    if (result.errors) throw new Error(`Subgraph GraphQL: ${JSON.stringify(result.errors)}`);
+    return result.data?.plantoidInstance?.seeds || [];
+  }
+
+  // For "all seeds": legacy subgraph indexes globally; fetch all + filter client-side
+  // by id-prefix (matches the original gallery.js behavior).
+  const query = `
+    query GetSeeds {
+      seeds(first: 1000) {
+        id
+        tokenId
+        revealed
+        uri
+        holder { address }
+      }
+    }
+  `;
+  const response = await fetch(subgraphUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ query }),
+  });
+  if (!response.ok) throw new Error(`Subgraph HTTP ${response.status}`);
+  const result = await response.json();
+  if (result.errors) throw new Error(`Subgraph GraphQL: ${JSON.stringify(result.errors)}`);
+  const all = result.data?.seeds || [];
+  const prefix = plantoidAddress.toLowerCase();
+  return all.filter((s) => s.id.toLowerCase().startsWith(prefix));
+}
+
+async function fetchSeedsForPlantoid(plantoidAddress, options = {}) {
+  const { revealedOnly = false } = options;
+  const label = revealedOnly ? "revealed seeds" : "all seeds";
+  try {
+    console.log(`🔍 Ponder: querying ${label}…`);
+    const seeds = await ponderFetchSeeds(plantoidAddress, { revealedOnly });
+    console.log(`📊 Ponder: ${seeds.length} ${label}`);
+    return seeds;
+  } catch (err) {
+    console.warn(`⚠️ Ponder unavailable, falling back to subgraph (${label}):`, err.message);
+    try {
+      const seeds = await subgraphFetchSeeds(plantoidAddress, { revealedOnly });
+      console.log(`📊 Subgraph fallback: ${seeds.length} ${label}`);
+      return seeds;
+    } catch (subErr) {
+      console.error(`Subgraph fallback also failed (${label}):`, subErr);
       return [];
     }
-
-    // Filter for our plantoid
-    const allSeeds = result.data?.seeds || [];
-    const plantoidPrefix = plantoidAddress.toLowerCase();
-    const filteredSeeds = allSeeds.filter((seed) =>
-      seed.id.toLowerCase().startsWith(plantoidPrefix)
-    );
-
-    console.log(
-      `📊 Main subgraph: ${allSeeds.length} total seeds, ${filteredSeeds.length} for plantoid ${plantoidAddress}`
-    );
-    return filteredSeeds;
-  } catch (error) {
-    console.error("Error querying main subgraph:", error);
-    return [];
   }
 }
 
@@ -215,60 +288,6 @@ async function queryMetadataSubgraph(plantoidAddress) {
     return seedMetadatas;
   } catch (error) {
     console.error("Error querying metadata subgraph:", error);
-    return [];
-  }
-}
-
-// Query revealed seeds from subgraph
-async function queryRevealedSeeds(plantoidAddress) {
-  try {
-    const mainSubgraphs = {
-      sepolia: "https://api.studio.thegraph.com/query/68539/plantoid-sep/3",
-      mainnet: "https://api.studio.thegraph.com/query/68539/plantoid-mainnet-v2/version/latest",
-      // mainnet: "https://gateway-arbitrum.network.thegraph.com/api/5aa71d6a9735426594a4f8c82de56afc/subgraphs/id/HCzhXN9mNjupmWemF6NsTmuoYFUonfwSmjHJ5MC8z3Rq",
-    };
-
-    const subgraphUrl = mainSubgraphs[currentNetwork];
-    if (!subgraphUrl) {
-      console.log(`No subgraph configured for ${currentNetwork}`);
-      return [];
-    }
-
-    const query = `
-      query getRevealedSeeds($plantoidId: String!) {
-        plantoidInstance(id: $plantoidId) {
-          id
-          seeds(first: 1000, where: {revealed: true}) {
-            id
-            tokenId
-            uri
-            revealed
-          }
-        }
-      }
-    `;
-
-    console.log("🔍 Querying revealed seeds...");
-    const response = await fetch(subgraphUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        query,
-        variables: { plantoidId: plantoidAddress.toLowerCase() },
-      }),
-    });
-
-    const result = await response.json();
-    if (result.errors) {
-      console.error("Revealed seeds query errors:", result.errors);
-      return [];
-    }
-
-    const revealedSeeds = result.data?.plantoidInstance?.seeds || [];
-    console.log(`📊 Found ${revealedSeeds.length} revealed seeds`);
-    return revealedSeeds;
-  } catch (error) {
-    console.error("Error querying revealed seeds:", error);
     return [];
   }
 }
@@ -374,7 +393,7 @@ async function loadNFTs() {
     const networkConfig = getCurrentNetworkConfig();
     
     // Query revealed seeds from subgraph
-    const revealedSeeds = await queryRevealedSeeds(networkConfig.plantoidAddress);
+    const revealedSeeds = await fetchSeedsForPlantoid(networkConfig.plantoidAddress, { revealedOnly: true });
     
     if (revealedSeeds.length === 0) {
       loadingMessage.textContent = "No revealed NFTs with videos found";
@@ -519,7 +538,7 @@ async function loadUnrevealedNFTs() {
     // Query both subgraphs and combine data (exactly like plantoid-ui-ui4all)
     console.log("🔍 Querying both subgraphs...");
     const [mainSeeds, metadataSignatures] = await Promise.all([
-      queryMainSubgraph(networkConfig.plantoidAddress),
+      fetchSeedsForPlantoid(networkConfig.plantoidAddress),
       queryMetadataSubgraph(networkConfig.plantoidAddress),
     ]);
 

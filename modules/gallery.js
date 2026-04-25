@@ -1,7 +1,29 @@
-import { NETWORKS, DEFAULT_NETWORK, PLANTOID_CONFIG, NETWORK_STORAGE } from "../config.js";
+import {
+  NETWORKS,
+  DEFAULT_NETWORK,
+  PLANTOID_CONFIG,
+  NETWORK_STORAGE,
+} from "../config.js";
 
-// Note: Rate limiting configuration removed - no longer needed with subgraph approach
+export const INDEXER_GRAPHQL_URL =
+  "https://plantoidz-brainz.tail98279f.ts.net/graphql";
 
+// Legacy subgraph endpoints — used as a fallback when the Ponder indexer is
+// unreachable or erroring (e.g. during initial sync).
+//
+// Seed data is per-network (The Graph hosts a separate deployment per chain).
+// Metadata signatures live in a single subgraph indexing the PlantoidMetadata
+// contract on Polygon, which serves both Sepolia and Mainnet plantoids.
+const SUBGRAPH_URLS = {
+  sepolia: "https://api.studio.thegraph.com/query/68539/plantoid-sep/3",
+  mainnet:
+    "https://api.studio.thegraph.com/query/68539/plantoid-mainnet-v2/version/latest",
+};
+
+const METADATA_SUBGRAPH_URL =
+  "https://api.studio.thegraph.com/query/68539/plantoid-polygon/version/latest";
+
+// Note: Rate limiting configuration removed - no longer needed with indexer approach
 
 // Permanent TokenURI caching system - network-aware and never expires
 const TOKEN_URI_CACHE = {
@@ -31,7 +53,7 @@ const TOKEN_URI_CACHE = {
       tokenURI,
       timestamp: Date.now(),
       network: networkKey,
-      contractAddress: contractAddress.toLowerCase()
+      contractAddress: contractAddress.toLowerCase(),
     });
   },
 
@@ -44,7 +66,9 @@ const TOKEN_URI_CACHE = {
         cleared++;
       }
     }
-    console.log(`🗑️ Cleared ${cleared} cache entries for network ${networkKey}`);
+    console.log(
+      `🗑️ Cleared ${cleared} cache entries for network ${networkKey}`,
+    );
   },
 
   // Clear entire cache (optional - usually not needed since tokenURIs are immutable)
@@ -59,15 +83,15 @@ const TOKEN_URI_CACHE = {
     const stats = {
       totalSize: this.cache.size,
       byNetwork: {},
-      keys: Array.from(this.cache.keys())
+      keys: Array.from(this.cache.keys()),
     };
-    
+
     // Count entries by network
     for (const [key, value] of this.cache.entries()) {
-      const network = value.network || 'unknown';
+      const network = value.network || "unknown";
       stats.byNetwork[network] = (stats.byNetwork[network] || 0) + 1;
     }
-    
+
     return stats;
   },
 };
@@ -82,7 +106,7 @@ const UNREVEALED_PAGINATION = {
   itemsPerPage: 5,
   currentPage: 1,
   totalItems: 0,
-  data: []
+  data: [],
 };
 
 // Get current network configuration
@@ -101,154 +125,70 @@ function getOpenSeaUrl(contractAddress, tokenId, isTestnet) {
   }
 }
 
-// Query main subgraph for seeds data
-async function queryMainSubgraph(plantoidAddress) {
-  try {
-    // Main subgraph endpoints (seeds, revealed status, holders)
-    const mainSubgraphs = {
-      sepolia: "https://api.studio.thegraph.com/query/68539/plantoid-sep/3",
-      mainnet: "https://api.studio.thegraph.com/query/68539/plantoid-mainnet-v2/version/latest",
-       // "https://gateway-arbitrum.network.thegraph.com/api/5aa71d6a9735426594a4f8c82de56afc/subgraphs/id/HCzhXN9mNjupmWemF6NsTmuoYFUonfwSmjHJ5MC8z3Rq",
-      
-    };
+// ---------- Seed query adapter (Ponder primary, subgraph fallback) ----------
+//
+// Both functions return the subgraph-shaped array:
+//   [{ id, tokenId, revealed, uri, holder: { address } }]
+//
+// fetchSeedsForPlantoid tries Ponder first; on network/HTTP error or any
+// `errors` field in the GraphQL response, it falls back to the legacy
+// subgraph for the current network. Per-result-shape normalization is
+// kept inside each backend function so the rest of the gallery code is
+// agnostic to the data source.
 
-    const subgraphUrl = mainSubgraphs[currentNetwork];
-    if (!subgraphUrl) {
-      console.log(`No main subgraph configured for ${currentNetwork}`);
-      return [];
-    }
-
-    const query = `
-            query getSeeds {
-                seeds(first: 1000) {
-                    id
-                    tokenId
-                    revealed
-                    holder {
-                        address
-                    }
-                }
-            }
-        `;
-
-    console.log("🔍 Querying main subgraph...");
-    const response = await fetch(subgraphUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ query }),
-    });
-
-    const result = await response.json();
-    if (result.errors) {
-      console.error("Main subgraph errors:", result.errors);
-      return [];
-    }
-
-    // Filter for our plantoid
-    const allSeeds = result.data?.seeds || [];
-    const plantoidPrefix = plantoidAddress.toLowerCase();
-    const filteredSeeds = allSeeds.filter((seed) =>
-      seed.id.toLowerCase().startsWith(plantoidPrefix)
-    );
-
-    console.log(
-      `📊 Main subgraph: ${allSeeds.length} total seeds, ${filteredSeeds.length} for plantoid ${plantoidAddress}`
-    );
-    return filteredSeeds;
-  } catch (error) {
-    console.error("Error querying main subgraph:", error);
-    return [];
-  }
-}
-
-// Query metadata subgraph for reveal signatures
-async function queryMetadataSubgraph(plantoidAddress) {
-  try {
-    // Metadata subgraph endpoints (signatures)
-    const metadataSubgraphs = {
-      sepolia:
-        "https://api.studio.thegraph.com/query/68539/plantoid-polygon/version/latest",
-       // "https://gateway-arbitrum.network.thegraph.com/api/5aa71d6a9735426594a4f8c82de56afc/subgraphs/id/EmnBAZcJGouYxmcApwMKspGqNTY79f5tw5oDh7AvqFue",
-      mainnet:
-        "https://gateway-arbitrum.network.thegraph.com/api/5aa71d6a9735426594a4f8c82de56afc/subgraphs/id/EmnBAZcJGouYxmcApwMKspGqNTY79f5tw5oDh7AvqFue",
-    };
-
-    const subgraphUrl = metadataSubgraphs[currentNetwork];
-    if (!subgraphUrl) {
-      console.log(`No metadata subgraph configured for ${currentNetwork}`);
-      return [];
-    }
-
-    const query = `
-            query MetadataQuery($id: String!) {
-                plantoidMetadata(id: $id) {
-                    id
-                    seedMetadatas(first: 1000) {
-                        id
-                        revealedUri
-                        revealedSignature
-                    }
-                }
-            }
-        `;
-
-    console.log("🔍 Querying metadata subgraph... for plantoid-id : ", plantoidAddress.toLowerCase());
-    const response = await fetch(subgraphUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        query,
-        variables: { id: plantoidAddress.toLowerCase() },
-      }),
-    });
-
-    const result = await response.json();
-    if (result.errors) {
-      console.error("Metadata subgraph errors:", result.errors);
-      return [];
-    }
-
-    const seedMetadatas = result.data?.plantoidMetadata?.seedMetadatas || [];
-    console.log(
-      `🔑 Metadata subgraph: found ${seedMetadatas.length} signatures`
-    );
-    return seedMetadatas;
-  } catch (error) {
-    console.error("Error querying metadata subgraph:", error);
-    return [];
-  }
-}
-
-// Query revealed seeds from subgraph
-async function queryRevealedSeeds(plantoidAddress) {
-  try {
-    const mainSubgraphs = {
-      sepolia: "https://api.studio.thegraph.com/query/68539/plantoid-sep/3",
-      mainnet: "https://api.studio.thegraph.com/query/68539/plantoid-mainnet-v2/version/latest",
-      // mainnet: "https://gateway-arbitrum.network.thegraph.com/api/5aa71d6a9735426594a4f8c82de56afc/subgraphs/id/HCzhXN9mNjupmWemF6NsTmuoYFUonfwSmjHJ5MC8z3Rq",
-    };
-
-    const subgraphUrl = mainSubgraphs[currentNetwork];
-    if (!subgraphUrl) {
-      console.log(`No subgraph configured for ${currentNetwork}`);
-      return [];
-    }
-
-    const query = `
-      query getRevealedSeeds($plantoidId: String!) {
-        plantoidInstance(id: $plantoidId) {
+async function ponderFetchSeeds(plantoidAddress, { revealedOnly }) {
+  const where = revealedOnly
+    ? `{ plantoidId: $plantoidId, revealed: true }`
+    : `{ plantoidId: $plantoidId }`;
+  const query = `
+    query GetSeeds($plantoidId: String!) {
+      seeds(where: ${where}, limit: 1000) {
+        items {
           id
+          tokenId
+          revealed
+          uri
+          holder { address }
+        }
+      }
+    }
+  `;
+  const response = await fetch(INDEXER_GRAPHQL_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      query,
+      variables: { plantoidId: plantoidAddress.toLowerCase() },
+    }),
+  });
+  if (!response.ok) throw new Error(`Indexer HTTP ${response.status}`);
+  const result = await response.json();
+  if (result.errors)
+    throw new Error(`Indexer GraphQL: ${JSON.stringify(result.errors)}`);
+  return result.data?.seeds?.items || [];
+}
+
+async function subgraphFetchSeeds(plantoidAddress, { revealedOnly }) {
+  const subgraphUrl = SUBGRAPH_URLS[currentNetwork];
+  if (!subgraphUrl) {
+    console.warn(`No subgraph fallback configured for ${currentNetwork}`);
+    return [];
+  }
+
+  if (revealedOnly) {
+    const query = `
+      query GetRevealedSeeds($plantoidId: String!) {
+        plantoidInstance(id: $plantoidId) {
           seeds(first: 1000, where: {revealed: true}) {
             id
             tokenId
             uri
             revealed
+            holder { address }
           }
         }
       }
     `;
-
-    console.log("🔍 Querying revealed seeds...");
     const response = await fetch(subgraphUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -257,34 +197,170 @@ async function queryRevealedSeeds(plantoidAddress) {
         variables: { plantoidId: plantoidAddress.toLowerCase() },
       }),
     });
-
+    if (!response.ok) throw new Error(`Subgraph HTTP ${response.status}`);
     const result = await response.json();
-    if (result.errors) {
-      console.error("Revealed seeds query errors:", result.errors);
+    if (result.errors)
+      throw new Error(`Subgraph GraphQL: ${JSON.stringify(result.errors)}`);
+    return result.data?.plantoidInstance?.seeds || [];
+  }
+
+  // For "all seeds": legacy subgraph indexes globally; fetch all + filter client-side
+  // by id-prefix (matches the original gallery.js behavior).
+  const query = `
+    query GetSeeds {
+      seeds(first: 1000) {
+        id
+        tokenId
+        revealed
+        uri
+        holder { address }
+      }
+    }
+  `;
+  const response = await fetch(subgraphUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ query }),
+  });
+  if (!response.ok) throw new Error(`Subgraph HTTP ${response.status}`);
+  const result = await response.json();
+  if (result.errors)
+    throw new Error(`Subgraph GraphQL: ${JSON.stringify(result.errors)}`);
+  const all = result.data?.seeds || [];
+  const prefix = plantoidAddress.toLowerCase();
+  return all.filter((s) => s.id.toLowerCase().startsWith(prefix));
+}
+
+async function fetchSeedsForPlantoid(plantoidAddress, options = {}) {
+  const { revealedOnly = false } = options;
+  const label = revealedOnly ? "revealed seeds" : "all seeds";
+  try {
+    console.log(`🔍 Ponder: querying ${label}…`);
+    const seeds = await ponderFetchSeeds(plantoidAddress, { revealedOnly });
+    console.log(`📊 Ponder: ${seeds.length} ${label}`);
+    return seeds;
+  } catch (err) {
+    console.warn(
+      `⚠️ Ponder unavailable, falling back to subgraph (${label}):`,
+      err.message,
+    );
+    try {
+      const seeds = await subgraphFetchSeeds(plantoidAddress, { revealedOnly });
+      console.log(`📊 Subgraph fallback: ${seeds.length} ${label}`);
+      return seeds;
+    } catch (subErr) {
+      console.error(`Subgraph fallback also failed (${label}):`, subErr);
       return [];
     }
+  }
+}
 
-    const revealedSeeds = result.data?.plantoidInstance?.seeds || [];
-    console.log(`📊 Found ${revealedSeeds.length} revealed seeds`);
-    return revealedSeeds;
-  } catch (error) {
-    console.error("Error querying revealed seeds:", error);
-    return [];
+// ---------- Metadata query adapter (Ponder primary, subgraph fallback) -----
+//
+// Both backends return the subgraph-shaped array:
+//   [{ id, revealedUri, revealedSignature }]
+//
+// id format:
+//   Ponder:   `<plantoidLower>_<tokenIdHex>`  (e.g. "0x35fd..._0x1f")
+//   Subgraph: `<plantoidLower>_<tokenIdHex>`  (same)
+// gallery's matching strategies handle either, but they're identical here.
+
+async function ponderFetchMetadata(plantoidAddress) {
+  const prefix = `${plantoidAddress.toLowerCase()}_`;
+  const query = `
+    query GetMetadata($prefix: String!) {
+      seedMetadatas(where: { id_starts_with: $prefix }, limit: 1000) {
+        items {
+          id
+          tokenUri
+          signature
+        }
+      }
+    }
+  `;
+  const response = await fetch(INDEXER_GRAPHQL_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ query, variables: { prefix } }),
+  });
+  if (!response.ok) throw new Error(`Indexer HTTP ${response.status}`);
+  const result = await response.json();
+  if (result.errors)
+    throw new Error(`Indexer GraphQL: ${JSON.stringify(result.errors)}`);
+  const items = result.data?.seedMetadatas?.items || [];
+  // Normalize to subgraph field names so the consumer is shape-agnostic.
+  return items.map((m) => ({
+    id: m.id,
+    revealedUri: m.tokenUri,
+    revealedSignature: m.signature,
+  }));
+}
+
+async function subgraphFetchMetadata(plantoidAddress) {
+  const query = `
+    query MetadataQuery($id: String!) {
+      plantoidMetadata(id: $id) {
+        id
+        seedMetadatas(first: 1000) {
+          id
+          revealedUri
+          revealedSignature
+        }
+      }
+    }
+  `;
+  const response = await fetch(METADATA_SUBGRAPH_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      query,
+      variables: { id: plantoidAddress.toLowerCase() },
+    }),
+  });
+  if (!response.ok)
+    throw new Error(`Metadata subgraph HTTP ${response.status}`);
+  const result = await response.json();
+  if (result.errors)
+    throw new Error(
+      `Metadata subgraph GraphQL: ${JSON.stringify(result.errors)}`,
+    );
+  return result.data?.plantoidMetadata?.seedMetadatas || [];
+}
+
+async function fetchMetadataForPlantoid(plantoidAddress) {
+  try {
+    console.log(`🔍 Ponder: querying metadata signatures…`);
+    const md = await ponderFetchMetadata(plantoidAddress);
+    console.log(`🔑 Ponder: ${md.length} metadata signatures`);
+    return md;
+  } catch (err) {
+    console.warn(
+      `⚠️ Ponder unavailable, falling back to metadata subgraph:`,
+      err.message,
+    );
+    try {
+      const md = await subgraphFetchMetadata(plantoidAddress);
+      console.log(`🔑 Subgraph fallback: ${md.length} metadata signatures`);
+      return md;
+    } catch (subErr) {
+      console.error(`Metadata subgraph fallback also failed:`, subErr);
+      return [];
+    }
   }
 }
 
 // Pre-fetch IPFS metadata for revealed seeds
 async function fetchIPFSMetadata(seeds) {
   const ipfsContent = {};
-  
+
   for (const seed of seeds) {
     if (!seed.uri) continue;
-    
+
     try {
       // Convert IPFS URI to HTTP gateway URL
       const ipfsHash = seed.uri.replace("ipfs://", "");
       const metadataUrl = `https://ipfs.io/ipfs/${ipfsHash}`;
-      
+
       console.log(`📥 Fetching metadata for seed ${seed.tokenId}`);
       const response = await fetch(metadataUrl);
       if (response.ok) {
@@ -292,11 +368,16 @@ async function fetchIPFSMetadata(seeds) {
         ipfsContent[seed.id] = metadata;
       }
     } catch (error) {
-      console.error(`Failed to fetch metadata for seed ${seed.tokenId}:`, error);
+      console.error(
+        `Failed to fetch metadata for seed ${seed.tokenId}:`,
+        error,
+      );
     }
   }
-  
-  console.log(`📦 Pre-fetched metadata for ${Object.keys(ipfsContent).length} seeds`);
+
+  console.log(
+    `📦 Pre-fetched metadata for ${Object.keys(ipfsContent).length} seeds`,
+  );
   return ipfsContent;
 }
 
@@ -326,7 +407,7 @@ async function initializeGallery() {
     contract = new ethers.Contract(
       networkConfig.plantoidAddress,
       plantoidABI,
-      provider
+      provider,
     );
 
     // Set correct network in dropdown and update indicator
@@ -334,7 +415,7 @@ async function initializeGallery() {
     if (networkSelect) {
       networkSelect.value = currentNetwork;
     }
-    
+
     // Update network indicator to match current network
     updateNetworkIndicator();
 
@@ -372,10 +453,13 @@ async function loadNFTs() {
     loadingMessage.textContent = "Loading revealed NFTs with videos...";
 
     const networkConfig = getCurrentNetworkConfig();
-    
+
     // Query revealed seeds from subgraph
-    const revealedSeeds = await queryRevealedSeeds(networkConfig.plantoidAddress);
-    
+    const revealedSeeds = await fetchSeedsForPlantoid(
+      networkConfig.plantoidAddress,
+      { revealedOnly: true },
+    );
+
     if (revealedSeeds.length === 0) {
       loadingMessage.textContent = "No revealed NFTs with videos found";
       return;
@@ -386,21 +470,24 @@ async function loadNFTs() {
 
     // Process and display NFTs with videos
     const nftsWithVideos = [];
-    
-    revealedSeeds.forEach(seed => {
+
+    revealedSeeds.forEach((seed) => {
       const metadata = ipfsContent[seed.id];
       if (metadata && metadata.animation_url) {
         // Convert IPFS URL to HTTP gateway URL
-        const animationUrl = metadata.animation_url.startsWith("ipfs://") 
-          ? "https://ipfs.io/ipfs/" + metadata.animation_url.replace("ipfs://", "")
+        const animationUrl = metadata.animation_url.startsWith("ipfs://")
+          ? "https://ipfs.io/ipfs/" +
+            metadata.animation_url.replace("ipfs://", "")
           : metadata.animation_url;
-        
+
         nftsWithVideos.push({
           tokenId: seed.tokenId,
           animationUrl: animationUrl,
-          imageUrl: metadata.image ? (metadata.image.startsWith("ipfs://") 
-            ? "https://ipfs.io/ipfs/" + metadata.image.replace("ipfs://", "")
-            : metadata.image) : ""
+          imageUrl: metadata.image
+            ? metadata.image.startsWith("ipfs://")
+              ? "https://ipfs.io/ipfs/" + metadata.image.replace("ipfs://", "")
+              : metadata.image
+            : "",
         });
       }
     });
@@ -409,11 +496,11 @@ async function loadNFTs() {
     nftsWithVideos.sort((a, b) => parseInt(b.tokenId) - parseInt(a.tokenId));
 
     // Display NFTs
-    nftsWithVideos.forEach(nft => {
+    nftsWithVideos.forEach((nft) => {
       const openSeaUrl = getOpenSeaUrl(
         networkConfig.plantoidAddress,
         nft.tokenId,
-        networkConfig.isTestnet
+        networkConfig.isTestnet,
       );
 
       const nftLink = document.createElement("a");
@@ -424,7 +511,7 @@ async function loadNFTs() {
 
       nftLink.innerHTML = `
         <div class="nft-image-container">
-          <video src="${nft.animationUrl}" class="nft-media nft-video" 
+          <video src="${nft.animationUrl}" class="nft-media nft-video"
                  controls autoplay muted loop playsinline
                  poster="${nft.imageUrl}">
           </video>
@@ -469,11 +556,11 @@ async function switchNetwork(networkKey) {
   }
 
   currentNetwork = networkKey;
-  
+
   // Save network preference to localStorage
   NETWORK_STORAGE.set(networkKey);
 
-  // Note: We no longer clear cache when switching networks since 
+  // Note: We no longer clear cache when switching networks since
   // tokenURIs are immutable and cache is network-aware
 
   // Reset pagination when switching networks
@@ -519,8 +606,8 @@ async function loadUnrevealedNFTs() {
     // Query both subgraphs and combine data (exactly like plantoid-ui-ui4all)
     console.log("🔍 Querying both subgraphs...");
     const [mainSeeds, metadataSignatures] = await Promise.all([
-      queryMainSubgraph(networkConfig.plantoidAddress),
-      queryMetadataSubgraph(networkConfig.plantoidAddress),
+      fetchSeedsForPlantoid(networkConfig.plantoidAddress),
+      fetchMetadataForPlantoid(networkConfig.plantoidAddress),
     ]);
 
     console.log("📊 Main seeds:", mainSeeds);
@@ -546,7 +633,7 @@ async function loadUnrevealedNFTs() {
       console.log(`🔗 Looking for metadata for seed tokenId: ${tokenIdStr}`);
       console.log(
         `🔗 Available metadata IDs:`,
-        metadataSignatures.map((md) => md.id)
+        metadataSignatures.map((md) => md.id),
       );
 
       // Find matching metadata for this seed by tokenId
@@ -593,7 +680,7 @@ async function loadUnrevealedNFTs() {
         unrevealedWithSignatures.push(seed);
       } else {
         console.log(
-          `🔍 Seed ${seed.tokenId}: revealed=${seed.revealed}, hasSignature=${hasSignature}, revealedSignature=${seed.revealedSignature}`
+          `🔍 Seed ${seed.tokenId}: revealed=${seed.revealed}, hasSignature=${hasSignature}, revealedSignature=${seed.revealedSignature}`,
         );
       }
     }
@@ -604,19 +691,19 @@ async function loadUnrevealedNFTs() {
 
     if (unrevealedWithSignatures.length > 0) {
       console.log(
-        `✅ Displaying ${unrevealedWithSignatures.length} unrevealed NFTs with pagination`
+        `✅ Displaying ${unrevealedWithSignatures.length} unrevealed NFTs with pagination`,
       );
-      
+
       // Sort unrevealed seeds by tokenId in descending order (highest numbers first)
-      const sortedUnrevealedSeeds = unrevealedWithSignatures.sort((a, b) => 
-        parseInt(b.tokenId) - parseInt(a.tokenId)
+      const sortedUnrevealedSeeds = unrevealedWithSignatures.sort(
+        (a, b) => parseInt(b.tokenId) - parseInt(a.tokenId),
       );
-      
+
       // Store data in pagination system
       UNREVEALED_PAGINATION.data = sortedUnrevealedSeeds;
       UNREVEALED_PAGINATION.totalItems = sortedUnrevealedSeeds.length;
       UNREVEALED_PAGINATION.currentPage = 1; // Reset to first page
-      
+
       displayUnrevealedTablePaginated();
       unrevealedSection.style.display = "block";
     } else {
@@ -636,7 +723,9 @@ function displayUnrevealedTablePaginated() {
   const unrevealedTable = document.getElementById("unrevealed-table");
   const { currentPage, itemsPerPage, totalItems, data } = UNREVEALED_PAGINATION;
 
-  console.log(`🎨 Displaying paginated table - Page ${currentPage} of ${Math.ceil(totalItems / itemsPerPage)}`);
+  console.log(
+    `🎨 Displaying paginated table - Page ${currentPage} of ${Math.ceil(totalItems / itemsPerPage)}`,
+  );
 
   // Calculate pagination
   const totalPages = Math.ceil(totalItems / itemsPerPage);
@@ -681,7 +770,7 @@ function displayUnrevealedTablePaginated() {
         <div class="reveal-seed">Seed #${tokenId}</div>
         <div class="reveal-holder" title="${holderAddress}">${displayAddress}</div>
         <div>
-          <button class="reveal-button" 
+          <button class="reveal-button"
                   ${!canReveal ? "disabled" : ""}
                   onclick="revealNFT('${tokenId}', '${nft.revealedUri || ""}', '${nft.revealedSignature || ""}')">
             ${canReveal ? "Reveal" : "No Signature"}
@@ -695,15 +784,15 @@ function displayUnrevealedTablePaginated() {
   if (totalPages > 1) {
     tableHTML += `
       <div class="reveal-pagination">
-        <button class="reveal-pagination-btn reveal-pagination-left" 
-                onclick="changePage(${currentPage - 1})" 
-                ${currentPage === 1 ? 'disabled' : ''}>
+        <button class="reveal-pagination-btn reveal-pagination-left"
+                onclick="changePage(${currentPage - 1})"
+                ${currentPage === 1 ? "disabled" : ""}>
           ←
         </button>
         <span class="reveal-pagination-info">${currentPage}/${totalPages}</span>
-        <button class="reveal-pagination-btn reveal-pagination-right" 
-                onclick="changePage(${currentPage + 1})" 
-                ${currentPage === totalPages ? 'disabled' : ''}>
+        <button class="reveal-pagination-btn reveal-pagination-right"
+                onclick="changePage(${currentPage + 1})"
+                ${currentPage === totalPages ? "disabled" : ""}>
           →
         </button>
       </div>
@@ -714,9 +803,11 @@ function displayUnrevealedTablePaginated() {
 }
 
 // Change page function for pagination
-window.changePage = function(newPage) {
-  const totalPages = Math.ceil(UNREVEALED_PAGINATION.totalItems / UNREVEALED_PAGINATION.itemsPerPage);
-  
+window.changePage = function (newPage) {
+  const totalPages = Math.ceil(
+    UNREVEALED_PAGINATION.totalItems / UNREVEALED_PAGINATION.itemsPerPage,
+  );
+
   if (newPage >= 1 && newPage <= totalPages) {
     UNREVEALED_PAGINATION.currentPage = newPage;
     displayUnrevealedTablePaginated();
@@ -726,8 +817,10 @@ window.changePage = function(newPage) {
 // Keep original function for backward compatibility
 function displayUnrevealedTable(unrevealedNFTs) {
   // This function is now deprecated in favor of displayUnrevealedTablePaginated
-  console.warn("displayUnrevealedTable is deprecated, use displayUnrevealedTablePaginated instead");
-  
+  console.warn(
+    "displayUnrevealedTable is deprecated, use displayUnrevealedTablePaginated instead",
+  );
+
   // For backward compatibility, store data and show first page
   UNREVEALED_PAGINATION.data = unrevealedNFTs;
   UNREVEALED_PAGINATION.totalItems = unrevealedNFTs.length;
@@ -774,7 +867,7 @@ window.revealNFT = async function (tokenId, revealedUri, revealedSignature) {
     const plantoidContract = new ethers.Contract(
       networkConfig.plantoidAddress,
       plantoidABI,
-      signer
+      signer,
     );
 
     // Note: Skip checking if already revealed - trust subgraph data for efficiency
@@ -791,7 +884,7 @@ window.revealNFT = async function (tokenId, revealedUri, revealedSignature) {
       const gasEstimate = await plantoidContract.revealContent.estimateGas(
         tokenId,
         revealedUri,
-        revealedSignature
+        revealedSignature,
       );
       console.log("⛽ Gas estimate:", gasEstimate.toString());
     } catch (gasError) {
@@ -800,7 +893,7 @@ window.revealNFT = async function (tokenId, revealedUri, revealedSignature) {
       // Try to decode the error
       if (gasError.data === "0xa89ac151") {
         alert(
-          "Reveal failed: Invalid signature or this NFT cannot be revealed yet."
+          "Reveal failed: Invalid signature or this NFT cannot be revealed yet.",
         );
       } else {
         alert(`Reveal failed: ${gasError.message || "Unknown contract error"}`);
@@ -812,7 +905,7 @@ window.revealNFT = async function (tokenId, revealedUri, revealedSignature) {
     const tx = await plantoidContract.revealContent(
       tokenId,
       revealedUri,
-      revealedSignature
+      revealedSignature,
     );
 
     console.log(`🎉 Reveal transaction submitted! Hash: ${tx.hash}`);
@@ -831,7 +924,7 @@ window.revealNFT = async function (tokenId, revealedUri, revealedSignature) {
     // Provide more specific error messages
     if (error.code === "CALL_EXCEPTION") {
       alert(
-        "Transaction failed: The smart contract rejected this reveal. This could mean the signature is invalid, expired, or the NFT is already revealed."
+        "Transaction failed: The smart contract rejected this reveal. This could mean the signature is invalid, expired, or the NFT is already revealed.",
       );
     } else if (error.code === "ACTION_REJECTED") {
       alert("Transaction cancelled by user.");

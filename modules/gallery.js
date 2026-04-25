@@ -1,4 +1,12 @@
-import { NETWORKS, DEFAULT_NETWORK, PLANTOID_CONFIG, NETWORK_STORAGE, INDEXER_GRAPHQL_URL } from "../config.js";
+import {
+  NETWORKS,
+  DEFAULT_NETWORK,
+  PLANTOID_CONFIG,
+  NETWORK_STORAGE,
+} from "../config.js";
+
+export const INDEXER_GRAPHQL_URL =
+  "https://plantoidz-brainz.tail98279f.ts.net/graphql";
 
 // Legacy subgraph endpoints — used as a fallback when the Ponder indexer is
 // unreachable or erroring (e.g. during initial sync). Per-network because The
@@ -10,7 +18,6 @@ const SUBGRAPH_URLS = {
 };
 
 // Note: Rate limiting configuration removed - no longer needed with indexer approach
-
 
 // Permanent TokenURI caching system - network-aware and never expires
 const TOKEN_URI_CACHE = {
@@ -40,7 +47,7 @@ const TOKEN_URI_CACHE = {
       tokenURI,
       timestamp: Date.now(),
       network: networkKey,
-      contractAddress: contractAddress.toLowerCase()
+      contractAddress: contractAddress.toLowerCase(),
     });
   },
 
@@ -53,7 +60,9 @@ const TOKEN_URI_CACHE = {
         cleared++;
       }
     }
-    console.log(`🗑️ Cleared ${cleared} cache entries for network ${networkKey}`);
+    console.log(
+      `🗑️ Cleared ${cleared} cache entries for network ${networkKey}`,
+    );
   },
 
   // Clear entire cache (optional - usually not needed since tokenURIs are immutable)
@@ -68,15 +77,15 @@ const TOKEN_URI_CACHE = {
     const stats = {
       totalSize: this.cache.size,
       byNetwork: {},
-      keys: Array.from(this.cache.keys())
+      keys: Array.from(this.cache.keys()),
     };
-    
+
     // Count entries by network
     for (const [key, value] of this.cache.entries()) {
-      const network = value.network || 'unknown';
+      const network = value.network || "unknown";
       stats.byNetwork[network] = (stats.byNetwork[network] || 0) + 1;
     }
-    
+
     return stats;
   },
 };
@@ -91,7 +100,7 @@ const UNREVEALED_PAGINATION = {
   itemsPerPage: 5,
   currentPage: 1,
   totalItems: 0,
-  data: []
+  data: [],
 };
 
 // Get current network configuration
@@ -148,7 +157,8 @@ async function ponderFetchSeeds(plantoidAddress, { revealedOnly }) {
   });
   if (!response.ok) throw new Error(`Indexer HTTP ${response.status}`);
   const result = await response.json();
-  if (result.errors) throw new Error(`Indexer GraphQL: ${JSON.stringify(result.errors)}`);
+  if (result.errors)
+    throw new Error(`Indexer GraphQL: ${JSON.stringify(result.errors)}`);
   return result.data?.seeds?.items || [];
 }
 
@@ -183,7 +193,8 @@ async function subgraphFetchSeeds(plantoidAddress, { revealedOnly }) {
     });
     if (!response.ok) throw new Error(`Subgraph HTTP ${response.status}`);
     const result = await response.json();
-    if (result.errors) throw new Error(`Subgraph GraphQL: ${JSON.stringify(result.errors)}`);
+    if (result.errors)
+      throw new Error(`Subgraph GraphQL: ${JSON.stringify(result.errors)}`);
     return result.data?.plantoidInstance?.seeds || [];
   }
 
@@ -207,7 +218,8 @@ async function subgraphFetchSeeds(plantoidAddress, { revealedOnly }) {
   });
   if (!response.ok) throw new Error(`Subgraph HTTP ${response.status}`);
   const result = await response.json();
-  if (result.errors) throw new Error(`Subgraph GraphQL: ${JSON.stringify(result.errors)}`);
+  if (result.errors)
+    throw new Error(`Subgraph GraphQL: ${JSON.stringify(result.errors)}`);
   const all = result.data?.seeds || [];
   const prefix = plantoidAddress.toLowerCase();
   return all.filter((s) => s.id.toLowerCase().startsWith(prefix));
@@ -222,7 +234,10 @@ async function fetchSeedsForPlantoid(plantoidAddress, options = {}) {
     console.log(`📊 Ponder: ${seeds.length} ${label}`);
     return seeds;
   } catch (err) {
-    console.warn(`⚠️ Ponder unavailable, falling back to subgraph (${label}):`, err.message);
+    console.warn(
+      `⚠️ Ponder unavailable, falling back to subgraph (${label}):`,
+      err.message,
+    );
     try {
       const seeds = await subgraphFetchSeeds(plantoidAddress, { revealedOnly });
       console.log(`📊 Subgraph fallback: ${seeds.length} ${label}`);
@@ -241,7 +256,7 @@ async function queryMetadataSubgraph(plantoidAddress) {
     const metadataSubgraphs = {
       sepolia:
         "https://api.studio.thegraph.com/query/68539/plantoid-polygon/version/latest",
-       // "https://gateway-arbitrum.network.thegraph.com/api/5aa71d6a9735426594a4f8c82de56afc/subgraphs/id/EmnBAZcJGouYxmcApwMKspGqNTY79f5tw5oDh7AvqFue",
+      // "https://gateway-arbitrum.network.thegraph.com/api/5aa71d6a9735426594a4f8c82de56afc/subgraphs/id/EmnBAZcJGouYxmcApwMKspGqNTY79f5tw5oDh7AvqFue",
       mainnet:
         "https://gateway-arbitrum.network.thegraph.com/api/5aa71d6a9735426594a4f8c82de56afc/subgraphs/id/EmnBAZcJGouYxmcApwMKspGqNTY79f5tw5oDh7AvqFue",
     };
@@ -265,7 +280,10 @@ async function queryMetadataSubgraph(plantoidAddress) {
             }
         `;
 
-    console.log("🔍 Querying metadata subgraph... for plantoid-id : ", plantoidAddress.toLowerCase());
+    console.log(
+      "🔍 Querying metadata subgraph... for plantoid-id : ",
+      plantoidAddress.toLowerCase(),
+    );
     const response = await fetch(subgraphUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -283,7 +301,7 @@ async function queryMetadataSubgraph(plantoidAddress) {
 
     const seedMetadatas = result.data?.plantoidMetadata?.seedMetadatas || [];
     console.log(
-      `🔑 Metadata subgraph: found ${seedMetadatas.length} signatures`
+      `🔑 Metadata subgraph: found ${seedMetadatas.length} signatures`,
     );
     return seedMetadatas;
   } catch (error) {
@@ -295,15 +313,15 @@ async function queryMetadataSubgraph(plantoidAddress) {
 // Pre-fetch IPFS metadata for revealed seeds
 async function fetchIPFSMetadata(seeds) {
   const ipfsContent = {};
-  
+
   for (const seed of seeds) {
     if (!seed.uri) continue;
-    
+
     try {
       // Convert IPFS URI to HTTP gateway URL
       const ipfsHash = seed.uri.replace("ipfs://", "");
       const metadataUrl = `https://ipfs.io/ipfs/${ipfsHash}`;
-      
+
       console.log(`📥 Fetching metadata for seed ${seed.tokenId}`);
       const response = await fetch(metadataUrl);
       if (response.ok) {
@@ -311,11 +329,16 @@ async function fetchIPFSMetadata(seeds) {
         ipfsContent[seed.id] = metadata;
       }
     } catch (error) {
-      console.error(`Failed to fetch metadata for seed ${seed.tokenId}:`, error);
+      console.error(
+        `Failed to fetch metadata for seed ${seed.tokenId}:`,
+        error,
+      );
     }
   }
-  
-  console.log(`📦 Pre-fetched metadata for ${Object.keys(ipfsContent).length} seeds`);
+
+  console.log(
+    `📦 Pre-fetched metadata for ${Object.keys(ipfsContent).length} seeds`,
+  );
   return ipfsContent;
 }
 
@@ -345,7 +368,7 @@ async function initializeGallery() {
     contract = new ethers.Contract(
       networkConfig.plantoidAddress,
       plantoidABI,
-      provider
+      provider,
     );
 
     // Set correct network in dropdown and update indicator
@@ -353,7 +376,7 @@ async function initializeGallery() {
     if (networkSelect) {
       networkSelect.value = currentNetwork;
     }
-    
+
     // Update network indicator to match current network
     updateNetworkIndicator();
 
@@ -391,10 +414,13 @@ async function loadNFTs() {
     loadingMessage.textContent = "Loading revealed NFTs with videos...";
 
     const networkConfig = getCurrentNetworkConfig();
-    
+
     // Query revealed seeds from subgraph
-    const revealedSeeds = await fetchSeedsForPlantoid(networkConfig.plantoidAddress, { revealedOnly: true });
-    
+    const revealedSeeds = await fetchSeedsForPlantoid(
+      networkConfig.plantoidAddress,
+      { revealedOnly: true },
+    );
+
     if (revealedSeeds.length === 0) {
       loadingMessage.textContent = "No revealed NFTs with videos found";
       return;
@@ -405,21 +431,24 @@ async function loadNFTs() {
 
     // Process and display NFTs with videos
     const nftsWithVideos = [];
-    
-    revealedSeeds.forEach(seed => {
+
+    revealedSeeds.forEach((seed) => {
       const metadata = ipfsContent[seed.id];
       if (metadata && metadata.animation_url) {
         // Convert IPFS URL to HTTP gateway URL
-        const animationUrl = metadata.animation_url.startsWith("ipfs://") 
-          ? "https://ipfs.io/ipfs/" + metadata.animation_url.replace("ipfs://", "")
+        const animationUrl = metadata.animation_url.startsWith("ipfs://")
+          ? "https://ipfs.io/ipfs/" +
+            metadata.animation_url.replace("ipfs://", "")
           : metadata.animation_url;
-        
+
         nftsWithVideos.push({
           tokenId: seed.tokenId,
           animationUrl: animationUrl,
-          imageUrl: metadata.image ? (metadata.image.startsWith("ipfs://") 
-            ? "https://ipfs.io/ipfs/" + metadata.image.replace("ipfs://", "")
-            : metadata.image) : ""
+          imageUrl: metadata.image
+            ? metadata.image.startsWith("ipfs://")
+              ? "https://ipfs.io/ipfs/" + metadata.image.replace("ipfs://", "")
+              : metadata.image
+            : "",
         });
       }
     });
@@ -428,11 +457,11 @@ async function loadNFTs() {
     nftsWithVideos.sort((a, b) => parseInt(b.tokenId) - parseInt(a.tokenId));
 
     // Display NFTs
-    nftsWithVideos.forEach(nft => {
+    nftsWithVideos.forEach((nft) => {
       const openSeaUrl = getOpenSeaUrl(
         networkConfig.plantoidAddress,
         nft.tokenId,
-        networkConfig.isTestnet
+        networkConfig.isTestnet,
       );
 
       const nftLink = document.createElement("a");
@@ -443,7 +472,7 @@ async function loadNFTs() {
 
       nftLink.innerHTML = `
         <div class="nft-image-container">
-          <video src="${nft.animationUrl}" class="nft-media nft-video" 
+          <video src="${nft.animationUrl}" class="nft-media nft-video"
                  controls autoplay muted loop playsinline
                  poster="${nft.imageUrl}">
           </video>
@@ -488,11 +517,11 @@ async function switchNetwork(networkKey) {
   }
 
   currentNetwork = networkKey;
-  
+
   // Save network preference to localStorage
   NETWORK_STORAGE.set(networkKey);
 
-  // Note: We no longer clear cache when switching networks since 
+  // Note: We no longer clear cache when switching networks since
   // tokenURIs are immutable and cache is network-aware
 
   // Reset pagination when switching networks
@@ -565,7 +594,7 @@ async function loadUnrevealedNFTs() {
       console.log(`🔗 Looking for metadata for seed tokenId: ${tokenIdStr}`);
       console.log(
         `🔗 Available metadata IDs:`,
-        metadataSignatures.map((md) => md.id)
+        metadataSignatures.map((md) => md.id),
       );
 
       // Find matching metadata for this seed by tokenId
@@ -612,7 +641,7 @@ async function loadUnrevealedNFTs() {
         unrevealedWithSignatures.push(seed);
       } else {
         console.log(
-          `🔍 Seed ${seed.tokenId}: revealed=${seed.revealed}, hasSignature=${hasSignature}, revealedSignature=${seed.revealedSignature}`
+          `🔍 Seed ${seed.tokenId}: revealed=${seed.revealed}, hasSignature=${hasSignature}, revealedSignature=${seed.revealedSignature}`,
         );
       }
     }
@@ -623,19 +652,19 @@ async function loadUnrevealedNFTs() {
 
     if (unrevealedWithSignatures.length > 0) {
       console.log(
-        `✅ Displaying ${unrevealedWithSignatures.length} unrevealed NFTs with pagination`
+        `✅ Displaying ${unrevealedWithSignatures.length} unrevealed NFTs with pagination`,
       );
-      
+
       // Sort unrevealed seeds by tokenId in descending order (highest numbers first)
-      const sortedUnrevealedSeeds = unrevealedWithSignatures.sort((a, b) => 
-        parseInt(b.tokenId) - parseInt(a.tokenId)
+      const sortedUnrevealedSeeds = unrevealedWithSignatures.sort(
+        (a, b) => parseInt(b.tokenId) - parseInt(a.tokenId),
       );
-      
+
       // Store data in pagination system
       UNREVEALED_PAGINATION.data = sortedUnrevealedSeeds;
       UNREVEALED_PAGINATION.totalItems = sortedUnrevealedSeeds.length;
       UNREVEALED_PAGINATION.currentPage = 1; // Reset to first page
-      
+
       displayUnrevealedTablePaginated();
       unrevealedSection.style.display = "block";
     } else {
@@ -655,7 +684,9 @@ function displayUnrevealedTablePaginated() {
   const unrevealedTable = document.getElementById("unrevealed-table");
   const { currentPage, itemsPerPage, totalItems, data } = UNREVEALED_PAGINATION;
 
-  console.log(`🎨 Displaying paginated table - Page ${currentPage} of ${Math.ceil(totalItems / itemsPerPage)}`);
+  console.log(
+    `🎨 Displaying paginated table - Page ${currentPage} of ${Math.ceil(totalItems / itemsPerPage)}`,
+  );
 
   // Calculate pagination
   const totalPages = Math.ceil(totalItems / itemsPerPage);
@@ -700,7 +731,7 @@ function displayUnrevealedTablePaginated() {
         <div class="reveal-seed">Seed #${tokenId}</div>
         <div class="reveal-holder" title="${holderAddress}">${displayAddress}</div>
         <div>
-          <button class="reveal-button" 
+          <button class="reveal-button"
                   ${!canReveal ? "disabled" : ""}
                   onclick="revealNFT('${tokenId}', '${nft.revealedUri || ""}', '${nft.revealedSignature || ""}')">
             ${canReveal ? "Reveal" : "No Signature"}
@@ -714,15 +745,15 @@ function displayUnrevealedTablePaginated() {
   if (totalPages > 1) {
     tableHTML += `
       <div class="reveal-pagination">
-        <button class="reveal-pagination-btn reveal-pagination-left" 
-                onclick="changePage(${currentPage - 1})" 
-                ${currentPage === 1 ? 'disabled' : ''}>
+        <button class="reveal-pagination-btn reveal-pagination-left"
+                onclick="changePage(${currentPage - 1})"
+                ${currentPage === 1 ? "disabled" : ""}>
           ←
         </button>
         <span class="reveal-pagination-info">${currentPage}/${totalPages}</span>
-        <button class="reveal-pagination-btn reveal-pagination-right" 
-                onclick="changePage(${currentPage + 1})" 
-                ${currentPage === totalPages ? 'disabled' : ''}>
+        <button class="reveal-pagination-btn reveal-pagination-right"
+                onclick="changePage(${currentPage + 1})"
+                ${currentPage === totalPages ? "disabled" : ""}>
           →
         </button>
       </div>
@@ -733,9 +764,11 @@ function displayUnrevealedTablePaginated() {
 }
 
 // Change page function for pagination
-window.changePage = function(newPage) {
-  const totalPages = Math.ceil(UNREVEALED_PAGINATION.totalItems / UNREVEALED_PAGINATION.itemsPerPage);
-  
+window.changePage = function (newPage) {
+  const totalPages = Math.ceil(
+    UNREVEALED_PAGINATION.totalItems / UNREVEALED_PAGINATION.itemsPerPage,
+  );
+
   if (newPage >= 1 && newPage <= totalPages) {
     UNREVEALED_PAGINATION.currentPage = newPage;
     displayUnrevealedTablePaginated();
@@ -745,8 +778,10 @@ window.changePage = function(newPage) {
 // Keep original function for backward compatibility
 function displayUnrevealedTable(unrevealedNFTs) {
   // This function is now deprecated in favor of displayUnrevealedTablePaginated
-  console.warn("displayUnrevealedTable is deprecated, use displayUnrevealedTablePaginated instead");
-  
+  console.warn(
+    "displayUnrevealedTable is deprecated, use displayUnrevealedTablePaginated instead",
+  );
+
   // For backward compatibility, store data and show first page
   UNREVEALED_PAGINATION.data = unrevealedNFTs;
   UNREVEALED_PAGINATION.totalItems = unrevealedNFTs.length;
@@ -793,7 +828,7 @@ window.revealNFT = async function (tokenId, revealedUri, revealedSignature) {
     const plantoidContract = new ethers.Contract(
       networkConfig.plantoidAddress,
       plantoidABI,
-      signer
+      signer,
     );
 
     // Note: Skip checking if already revealed - trust subgraph data for efficiency
@@ -810,7 +845,7 @@ window.revealNFT = async function (tokenId, revealedUri, revealedSignature) {
       const gasEstimate = await plantoidContract.revealContent.estimateGas(
         tokenId,
         revealedUri,
-        revealedSignature
+        revealedSignature,
       );
       console.log("⛽ Gas estimate:", gasEstimate.toString());
     } catch (gasError) {
@@ -819,7 +854,7 @@ window.revealNFT = async function (tokenId, revealedUri, revealedSignature) {
       // Try to decode the error
       if (gasError.data === "0xa89ac151") {
         alert(
-          "Reveal failed: Invalid signature or this NFT cannot be revealed yet."
+          "Reveal failed: Invalid signature or this NFT cannot be revealed yet.",
         );
       } else {
         alert(`Reveal failed: ${gasError.message || "Unknown contract error"}`);
@@ -831,7 +866,7 @@ window.revealNFT = async function (tokenId, revealedUri, revealedSignature) {
     const tx = await plantoidContract.revealContent(
       tokenId,
       revealedUri,
-      revealedSignature
+      revealedSignature,
     );
 
     console.log(`🎉 Reveal transaction submitted! Hash: ${tx.hash}`);
@@ -850,7 +885,7 @@ window.revealNFT = async function (tokenId, revealedUri, revealedSignature) {
     // Provide more specific error messages
     if (error.code === "CALL_EXCEPTION") {
       alert(
-        "Transaction failed: The smart contract rejected this reveal. This could mean the signature is invalid, expired, or the NFT is already revealed."
+        "Transaction failed: The smart contract rejected this reveal. This could mean the signature is invalid, expired, or the NFT is already revealed.",
       );
     } else if (error.code === "ACTION_REJECTED") {
       alert("Transaction cancelled by user.");

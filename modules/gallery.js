@@ -9,13 +9,19 @@ export const INDEXER_GRAPHQL_URL =
   "https://plantoidz-brainz.tail98279f.ts.net/graphql";
 
 // Legacy subgraph endpoints — used as a fallback when the Ponder indexer is
-// unreachable or erroring (e.g. during initial sync). Per-network because The
-// Graph hosts a separate deployment per chain.
+// unreachable or erroring (e.g. during initial sync).
+//
+// Seed data is per-network (The Graph hosts a separate deployment per chain).
+// Metadata signatures live in a single subgraph indexing the PlantoidMetadata
+// contract on Polygon, which serves both Sepolia and Mainnet plantoids.
 const SUBGRAPH_URLS = {
   sepolia: "https://api.studio.thegraph.com/query/68539/plantoid-sep/3",
   mainnet:
     "https://api.studio.thegraph.com/query/68539/plantoid-mainnet-v2/version/latest",
 };
+
+const METADATA_SUBGRAPH_URL =
+  "https://api.studio.thegraph.com/query/68539/plantoid-polygon/version/latest";
 
 // Note: Rate limiting configuration removed - no longer needed with indexer approach
 
@@ -249,64 +255,97 @@ async function fetchSeedsForPlantoid(plantoidAddress, options = {}) {
   }
 }
 
-// Query metadata subgraph for reveal signatures
-async function queryMetadataSubgraph(plantoidAddress) {
+// ---------- Metadata query adapter (Ponder primary, subgraph fallback) -----
+//
+// Both backends return the subgraph-shaped array:
+//   [{ id, revealedUri, revealedSignature }]
+//
+// id format:
+//   Ponder:   `<plantoidLower>_<tokenIdHex>`  (e.g. "0x35fd..._0x1f")
+//   Subgraph: `<plantoidLower>_<tokenIdHex>`  (same)
+// gallery's matching strategies handle either, but they're identical here.
+
+async function ponderFetchMetadata(plantoidAddress) {
+  const prefix = `${plantoidAddress.toLowerCase()}_`;
+  const query = `
+    query GetMetadata($prefix: String!) {
+      seedMetadatas(where: { id_starts_with: $prefix }, limit: 1000) {
+        items {
+          id
+          tokenUri
+          signature
+        }
+      }
+    }
+  `;
+  const response = await fetch(INDEXER_GRAPHQL_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ query, variables: { prefix } }),
+  });
+  if (!response.ok) throw new Error(`Indexer HTTP ${response.status}`);
+  const result = await response.json();
+  if (result.errors)
+    throw new Error(`Indexer GraphQL: ${JSON.stringify(result.errors)}`);
+  const items = result.data?.seedMetadatas?.items || [];
+  // Normalize to subgraph field names so the consumer is shape-agnostic.
+  return items.map((m) => ({
+    id: m.id,
+    revealedUri: m.tokenUri,
+    revealedSignature: m.signature,
+  }));
+}
+
+async function subgraphFetchMetadata(plantoidAddress) {
+  const query = `
+    query MetadataQuery($id: String!) {
+      plantoidMetadata(id: $id) {
+        id
+        seedMetadatas(first: 1000) {
+          id
+          revealedUri
+          revealedSignature
+        }
+      }
+    }
+  `;
+  const response = await fetch(METADATA_SUBGRAPH_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      query,
+      variables: { id: plantoidAddress.toLowerCase() },
+    }),
+  });
+  if (!response.ok)
+    throw new Error(`Metadata subgraph HTTP ${response.status}`);
+  const result = await response.json();
+  if (result.errors)
+    throw new Error(
+      `Metadata subgraph GraphQL: ${JSON.stringify(result.errors)}`,
+    );
+  return result.data?.plantoidMetadata?.seedMetadatas || [];
+}
+
+async function fetchMetadataForPlantoid(plantoidAddress) {
   try {
-    // Metadata subgraph endpoints (signatures)
-    const metadataSubgraphs = {
-      sepolia:
-        "https://api.studio.thegraph.com/query/68539/plantoid-polygon/version/latest",
-      // "https://gateway-arbitrum.network.thegraph.com/api/5aa71d6a9735426594a4f8c82de56afc/subgraphs/id/EmnBAZcJGouYxmcApwMKspGqNTY79f5tw5oDh7AvqFue",
-      mainnet:
-        "https://gateway-arbitrum.network.thegraph.com/api/5aa71d6a9735426594a4f8c82de56afc/subgraphs/id/EmnBAZcJGouYxmcApwMKspGqNTY79f5tw5oDh7AvqFue",
-    };
-
-    const subgraphUrl = metadataSubgraphs[currentNetwork];
-    if (!subgraphUrl) {
-      console.log(`No metadata subgraph configured for ${currentNetwork}`);
+    console.log(`🔍 Ponder: querying metadata signatures…`);
+    const md = await ponderFetchMetadata(plantoidAddress);
+    console.log(`🔑 Ponder: ${md.length} metadata signatures`);
+    return md;
+  } catch (err) {
+    console.warn(
+      `⚠️ Ponder unavailable, falling back to metadata subgraph:`,
+      err.message,
+    );
+    try {
+      const md = await subgraphFetchMetadata(plantoidAddress);
+      console.log(`🔑 Subgraph fallback: ${md.length} metadata signatures`);
+      return md;
+    } catch (subErr) {
+      console.error(`Metadata subgraph fallback also failed:`, subErr);
       return [];
     }
-
-    const query = `
-            query MetadataQuery($id: String!) {
-                plantoidMetadata(id: $id) {
-                    id
-                    seedMetadatas(first: 1000) {
-                        id
-                        revealedUri
-                        revealedSignature
-                    }
-                }
-            }
-        `;
-
-    console.log(
-      "🔍 Querying metadata subgraph... for plantoid-id : ",
-      plantoidAddress.toLowerCase(),
-    );
-    const response = await fetch(subgraphUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        query,
-        variables: { id: plantoidAddress.toLowerCase() },
-      }),
-    });
-
-    const result = await response.json();
-    if (result.errors) {
-      console.error("Metadata subgraph errors:", result.errors);
-      return [];
-    }
-
-    const seedMetadatas = result.data?.plantoidMetadata?.seedMetadatas || [];
-    console.log(
-      `🔑 Metadata subgraph: found ${seedMetadatas.length} signatures`,
-    );
-    return seedMetadatas;
-  } catch (error) {
-    console.error("Error querying metadata subgraph:", error);
-    return [];
   }
 }
 
@@ -568,7 +607,7 @@ async function loadUnrevealedNFTs() {
     console.log("🔍 Querying both subgraphs...");
     const [mainSeeds, metadataSignatures] = await Promise.all([
       fetchSeedsForPlantoid(networkConfig.plantoidAddress),
-      queryMetadataSubgraph(networkConfig.plantoidAddress),
+      fetchMetadataForPlantoid(networkConfig.plantoidAddress),
     ]);
 
     console.log("📊 Main seeds:", mainSeeds);

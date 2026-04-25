@@ -167,7 +167,8 @@ async function queryMetadataSubgraph(plantoidAddress) {
     // Metadata subgraph endpoints (signatures)
     const metadataSubgraphs = {
       sepolia:
-        "https://gateway-arbitrum.network.thegraph.com/api/5aa71d6a9735426594a4f8c82de56afc/subgraphs/id/EmnBAZcJGouYxmcApwMKspGqNTY79f5tw5oDh7AvqFue",
+        "https://api.studio.thegraph.com/query/68539/plantoid-polygon/version/latest",
+       // "https://gateway-arbitrum.network.thegraph.com/api/5aa71d6a9735426594a4f8c82de56afc/subgraphs/id/EmnBAZcJGouYxmcApwMKspGqNTY79f5tw5oDh7AvqFue",
       mainnet:
         "https://gateway-arbitrum.network.thegraph.com/api/5aa71d6a9735426594a4f8c82de56afc/subgraphs/id/EmnBAZcJGouYxmcApwMKspGqNTY79f5tw5oDh7AvqFue",
     };
@@ -182,7 +183,7 @@ async function queryMetadataSubgraph(plantoidAddress) {
             query MetadataQuery($id: String!) {
                 plantoidMetadata(id: $id) {
                     id
-                    seedMetadatas {
+                    seedMetadatas(first: 1000) {
                         id
                         revealedUri
                         revealedSignature
@@ -551,9 +552,7 @@ async function loadUnrevealedNFTs() {
       // Find matching metadata for this seed by tokenId
       // Try multiple matching strategies since the ID format might be different
       const metadata = metadataSignatures.find((md) => {
-        console.log(
-          `🔗 Comparing metadata id "${md.id}" with seed tokenId "${tokenIdStr}"`
-        );
+        // console.log(`🔗 Comparing metadata id "${md.id}" with seed tokenId "${tokenIdStr}"`);
 
         // Strategy 1: Direct match
         if (md.id === tokenIdStr) return true;

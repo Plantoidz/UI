@@ -1,6 +1,9 @@
 // Configuration file for Plantoid UI
 export const INFURA_PROJECT_ID = "460f40a260564ac4a4f4b3fffb032dad";
 
+
+export const INDEXER_GRAPHQL_URL = "https://plantoidz-brainz.tail98279f.ts.net/graphql";
+
 // ================================
 // PLANTOID-SPECIFIC CONFIGURATION
 // ================================
@@ -116,3 +119,5 @@ export const RATE_LIMIT_CONFIG = {
   retryDelay: 2000, // Delay before retrying failed requests
   randomDelay: 200, // Max random delay to spread requests
 };
+
+

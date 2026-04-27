@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Venice - Plantoid Collection</title>
+    <title>Strange Rules - Plantoid Collection</title>
     <link href="https://fonts.googleapis.com/css2?family=Lato:wght@300&display=swap" rel="stylesheet">
     <style>
         * {
@@ -428,7 +428,7 @@
 
     <div class="container">
         <header class="header">
-            <h1 class="main-title">VENICE</h1>
+            <h1 class="main-title">STRANGE RULES</h1>
             <p class="main-subtitle">Four Plantoids Living on the Blockchain</p>
         </header>
 
@@ -631,6 +631,7 @@
         const COOLDOWN_MS = 60 * 1000;
         const COOLDOWN_STORAGE_KEY = 'venice_last_feed_ts';
         const RING_CIRCUMFERENCE = 2 * Math.PI * 18;
+        const BTN_RING_CIRCUMFERENCE = 2 * Math.PI * 8;
         let cooldownInterval = null;
 
         function getLastFeedTs() {
@@ -653,7 +654,10 @@
             PLANTOIDS.forEach(p => {
                 const btn = document.getElementById(`feed-btn-${p.id}`);
                 btn.disabled = false;
+                btn.classList.remove('cooling');
                 btn.querySelector('span').textContent = 'Feed';
+                const ring = btn.querySelector('.feed-ring-progress');
+                if (ring) ring.style.strokeDashoffset = BTN_RING_CIRCUMFERENCE;
             });
             if (cooldownInterval) {
                 clearInterval(cooldownInterval);
@@ -680,10 +684,14 @@
                 progressEl.style.strokeDashoffset = RING_CIRCUMFERENCE * (1 - elapsedFrac);
                 textEl.textContent = `Next feed in ${seconds}s`;
 
+                const btnDashOffset = BTN_RING_CIRCUMFERENCE * (1 - elapsedFrac);
                 PLANTOIDS.forEach(p => {
                     const btn = document.getElementById(`feed-btn-${p.id}`);
                     btn.disabled = true;
-                    btn.querySelector('span').textContent = `Wait ${seconds}s`;
+                    btn.classList.add('cooling');
+                    btn.querySelector('span').textContent = 'Feed';
+                    const ring = btn.querySelector('.feed-ring-progress');
+                    if (ring) ring.style.strokeDashoffset = btnDashOffset;
                 });
             }
 

@@ -21,7 +21,7 @@ export const PLANTOID_CONFIG = {
   subtitle: "cyberpunk poet with futuristic vibes",
 
   // Visual assets
-  image: "./assets/P17.jpg", // Path to plantoid image
+  image: "./assets/P17.png", // Path to plantoid image
   headerImage: "./assets/header2.png", // Path to header background
 
   // Contract addresses for each network
@@ -52,9 +52,9 @@ Every time you feed this Plantoid, it will come alive and engage in a conversati
         "Yannick LaDaniel — body art and design",
         "Martin Vert — electronics wiz",
         "Isaac Patka — smart contract architecture",
-        "Ben Moskowitz — Artificial Intelligence",
-        "0xGiulio - smart contract refactoring",
-        "Tony Lai — for donating the voice",
+        "Ben Moskowitz — AI instigator",
+        "0xGiulio - Glitchbox wizard and smart contrat magic",
+        "Iannis — for donating the voice",
         "All members of the GLITCH community who made me believe that everything is possible",
       ],
     },

@@ -1,0 +1,207 @@
+{
+  "default": 14,
+  "shared": {
+    "description": {
+      "main": "Plantoids are the plant equivalent of an android; a robot or a synthetic organism designed to look, act and grow like a plant.\n\nPlantoids are blockchain-based life-forms that live off crypto-currency. They are:\n• autonomous, i.e. not controlled by anyone,\n• self-sufficient as they survive on their own,\n• capable of reproducing themselves.\n\nYet, like most plants, Plantoids cannot reproduce themselves on their own. They rely on capitalisation (as opposed to pollinisation) to reproduce.\nPlantoids collect crypto-currency and then use the collected funds to hire new artists, commissioned to create new replicas of themselves via an evolutionary algorithm.\n\nEvery time you feed this Plantoid, it will come alive and engage in a conversation with you. It will then generate an oracle for you, in the form of a poem, and will illustrate this poem with generative AI. The result will be minted as an NFT and be sent back to you, as a sign of gratitude for your contribution to the Plantoid species."
+    },
+    "contributors": {
+      "title": "Contributors",
+      "intro": "This Plantoid was born out of the contribution of many friends and colleagues, which I am deeply appreciative of.",
+      "subtitle": "These include, in particular:"
+    },
+    "headerImage": "assets/header2.png"
+  },
+  "networks": {
+    "sepolia": {
+      "name": "Sepolia Testnet",
+      "chainId": 11155111,
+      "rpcUrl": "https://ethereum-sepolia-rpc.publicnode.com",
+      "blockExplorer": "https://sepolia.etherscan.io",
+      "isTestnet": true,
+      "feedAmount": "0.001"
+    },
+    "mainnet": {
+      "name": "Ethereum Mainnet",
+      "chainId": 1,
+      "rpcUrl": "https://ethereum-rpc.publicnode.com",
+      "blockExplorer": "https://etherscan.io",
+      "isTestnet": false,
+      "feedAmount": "0.01"
+    }
+  },
+  "plantoids": {
+    "13": {
+      "number": 13,
+      "name": "PLANTOID 13",
+      "subtitle": "DJ Plantoid",
+      "image": "assets/P13.jpg",
+      "contracts": {
+        "sepolia": "0x35fd9840d5489f748908e2cbd356f768b8534f11",
+        "mainnet": "0x6949bc5Fb1936407bEDd9F3757DA62147741f2A1"
+      },
+      "contributors": [
+        "Yannick LaDaniel — body art and design",
+        "Martin Vert — electronics wiz",
+        "Isaac Patka — smart contract architecture",
+        "Ben Moskowitz — Artificial Intelligence",
+        "0xGiulio - smart contract refactoring",
+        "Tony Lai — for donating the voice",
+        "All members of the GLITCH community who made me believe that everything is possible"
+      ]
+    },
+    "14": {
+      "number": 14,
+      "name": "PLANTOID 14",
+      "subtitle": "enigmatic poet with solarpunk vibes",
+      "image": "assets/P14.png",
+      "contracts": {
+        "sepolia": "0x3C6570206bB6b3BCbEc27643CBc89003a25caC8C",
+        "mainnet": "0xFfe18b42DE363a9b06b6a6a91733f50F998c3F13"
+      },
+      "contributors": [
+        "Yannick LaDaniel — body art and design",
+        "Martin Vert — electronics wiz",
+        "Isaac Patka — smart contract architecture",
+        "Ben Moskowitz — AI instigator",
+        "0xGiulio - Glitchbox wizard and smart contrat magic",
+        "Tony Lai — for donating the voice",
+        "All members of the GLITCH community who made me believe that everything is possible"
+      ]
+    },
+    "15": {
+      "number": 15,
+      "name": "PLANTOID 15",
+      "subtitle": "cyberpunk poet with futuristic vibes",
+      "image": "assets/P15.png",
+      "contracts": {
+        "sepolia": "0x66078a2061A68d5bA6cDdBc81517837dA0C7d7b5",
+        "mainnet": "0x4073E38f71b2612580E9e381031B0c38B3B4C27E"
+      },
+      "contributors": [
+        "Yannick LaDaniel — body art and design",
+        "Martin Vert — electronics wiz",
+        "Isaac Patka — smart contract architecture",
+        "Ben Moskowitz — Artificial Intelligence",
+        "0xGiulio - smart contract refactoring",
+        "Tony Lai — for donating the voice",
+        "All members of the GLITCH community who made me believe that everything is possible"
+      ]
+    },
+    "16": {
+      "number": 16,
+      "name": "PLANTOID 16",
+      "subtitle": "lunarpunk opera singer with 8bit vibes",
+      "image": "assets/P16.png",
+      "contracts": {
+        "sepolia": "0xf89f680542cb0aea55bc4f9c852e228765b9a0c0",
+        "mainnet": "0x8acbae9CacC1ab3fB149E214499aFDE8912156B3"
+      },
+      "contributors": [
+        "Yannick LaDaniel — body art and design",
+        "Martin Vert — electronics wiz",
+        "Isaac Patka — smart contract architecture",
+        "Ben Moskowitz — AI instigator",
+        "0xGiulio - Glitchbox wizard and smart contrat magic",
+        "MCSK - for the LoRAs used to generate the NFTs",
+        "Sofi — for donating the voice",
+        "All members of the GLITCH community who made me believe that everything is possible"
+      ]
+    },
+    "17": {
+      "number": 17,
+      "name": "PLANTOID 17",
+      "subtitle": "cybernetic poet with singularity vibes",
+      "image": "assets/P17.png",
+      "contracts": {
+        "sepolia": "0xdd05e577e1b0a7f1ec75e4f764f35fadab249ae7",
+        "mainnet": "0xc4332e6b9a7d04ed20fec9e2f15927e8e26ca154"
+      },
+      "contributors": [
+        "Yannick LaDaniel — body art and design",
+        "Martin Vert — electronics wiz",
+        "Isaac Patka — smart contract architecture",
+        "Ben Moskowitz — AI instigator",
+        "0xGiulio - Glitchbox wizard and smart contrat magic",
+        "Iannis — for donating the voice",
+        "All members of the GLITCH community who made me believe that everything is possible"
+      ]
+    },
+    "18": {
+      "number": 18,
+      "name": "PLANTOID 18",
+      "subtitle": "melancholic poet with steampunk vibes",
+      "image": "assets/P18.jpg",
+      "contracts": {
+        "sepolia": "0x3845241362e007daa52219722d0a60dc4dabe7b3",
+        "mainnet": "0xB289bf1c845392f142902732C40325AfefB77C07"
+      },
+      "contributors": [
+        "Yannick LaDaniel — body art and design",
+        "Martin Vert — electronics wiz",
+        "Isaac Patka — smart contract architecture",
+        "Ben Moskowitz — AI instigator",
+        "0xGiulio - Glitchbox wizard and smart contrat magic",
+        "MCSK - for the LoRAs used to generate the NFTs",
+        "Sofi — for donating the voice",
+        "All members of the GLITCH community who made me believe that everything is possible"
+      ]
+    },
+    "19": {
+      "number": 19,
+      "name": "PLANTOID 19",
+      "subtitle": "a lost poet exploring network spirituality",
+      "image": "assets/P19.jpg",
+      "contracts": {
+        "sepolia": "0xcc657dff69806d1f4483531622c3185fdd069ef0",
+        "mainnet": "0x93f74b7edba30e42b3b005989a95a3e0210502bf"
+      },
+      "contributors": [
+        "Yannick LaDaniel — body art and design",
+        "Martin Vert — electronics wiz",
+        "Isaac Patka — smart contract architecture",
+        "Ben Moskowitz — AI instigator",
+        "0xGiulio - Glitchbox wizard and smart contrat magic",
+        "MCSK - for the LoRAs used to generate the NFTs",
+        "All members of the GLITCH community who made me believe that everything is possible"
+      ]
+    },
+    "20": {
+      "number": 20,
+      "name": "PLANTOID 20",
+      "subtitle": "a wannabe tibetan-throat singer with 8bit vibes",
+      "image": "assets/P20.jpg",
+      "contracts": {
+        "sepolia": "0xc651817ef97775802b950eeeaa22b13d4e21107b",
+        "mainnet": "0xec735325e8562803e23ab6a15836d05950b69648"
+      },
+      "contributors": [
+        "Yannick LaDaniel — body art and design",
+        "Martin Vert — electronics wiz",
+        "Isaac Patka — smart contract architecture",
+        "Ben Moskowitz — AI instigator",
+        "0xGiulio - Glitchbox wizard and smart contrat magic",
+        "MCSK - for the LoRAs used to generate the NFTs",
+        "All members of the GLITCH community who made me believe that everything is possible"
+      ]
+    },
+    "21": {
+      "number": 21,
+      "name": "PLANTOID 21",
+      "subtitle": "a steampunk vocalist with melodramatic vibes",
+      "image": "assets/P21.jpg",
+      "contracts": {
+        "sepolia": "0xabe90a00ded9fc03bb99570811dde2123b2cad95",
+        "mainnet": "0x887d2c1849dd7d59a09ec2303dfe27bfe94aa837"
+      },
+      "contributors": [
+        "Yannick LaDaniel — body art and design",
+        "Martin Vert — electronics wiz",
+        "Isaac Patka — smart contract architecture",
+        "Ben Moskowitz — AI instigator",
+        "0xGiulio - Glitchbox wizard and smart contrat magic",
+        "MCSK - for the LoRAs used to generate the NFTs",
+        "All members of the GLITCH community who made me believe that everything is possible"
+      ]
+    }
+  }
+}

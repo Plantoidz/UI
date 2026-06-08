@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Plantoid</title>
+  <script>
+    const n = (location.hostname.match(/^(\d+)\./) || [])[1];
+    location.replace(n
+      ? `https://feed.plantoid.org/?p=${n}`
+      : 'https://feed.plantoid.org/');
+  </script>
+</head>
+<body></body>
+</html>

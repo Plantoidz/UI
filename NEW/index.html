@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plantoid</title>
+    <link href="https://fonts.googleapis.com/css2?family=Lato:wght@300&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="plantoid.css">
+    <link rel="stylesheet" href="main-sidebar.css">
+</head>
+<body>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js" type="application/javascript"></script>
+
+    <script type="module" src="modules/web3utils.js" defer></script>
+    <script type="module" src="modules/content-loader.js" defer></script>
+
+
+    <div class="background-pattern"></div>
+
+    <div class="container">
+        <!-- Left Sidebar Navigation -->
+        <nav class="sidebar-nav">
+            <div class="logo">
+                <h1 class="plantoid-name">PLANTOID</h1>
+            </div>
+            <div class="nav-items">
+                <a href="index.html" class="sidebar-nav-link active">
+                    <span>Home</span>
+                </a>
+                <a href="gallery.html" class="sidebar-nav-link">
+                    <span>Gallery</span>
+                </a>
+                <a href="feed/wallet.html" class="sidebar-nav-link">
+                    <span>Feed</span>
+                </a>
+            </div>
+            <div class="sidebar-connect-wallet">
+                <button id="connect-wallet" class="connect-wallet-btn">Connect Wallet</button>
+            </div>
+            <div class="network-selector" style="padding: 0 1rem; margin-top: auto; padding-bottom: 1rem;">
+                <select id="network-select">
+                    <option value="sepolia">Sepolia Testnet</option>
+                    <option value="mainnet" selected>Ethereum Mainnet</option>
+                </select>
+                <div id="network-indicator" class="network-indicator mainnet">Ethereum Mainnet</div>
+            </div>
+        </nav>
+
+        <div class="main-content">
+            <div class="plantoid-card">
+                <div class="plantoid-image"></div>
+
+                <div class="plantoid-stats">
+                    <div class="stat-item">
+                        <span class="stat-label">Total seeds in circulation:</span>
+                        <span class="stat-value" id="total-seeds"></span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Seeds owned by you:</span>
+                        <span class="stat-value" id="your-seeds">Connect wallet to see</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Smart Contract:</span>
+                        <span class="stat-value" id="contract-address" style="cursor: pointer;"></span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Artist:</span>
+                        <span class="stat-value" id="artist-address" style="cursor: pointer;"></span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Current Balance:</span>
+                        <span class="stat-value" id="current-balance"></span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Required Threshold:</span>
+                        <span class="stat-value">5.0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Currently in Escrow:</span>
+                        <span class="stat-value">0.0</span>
+                    </div>
+                </div>
+
+                <button class="feed-button" id="feed-button">Feed Plantoid</button>
+                <div class="feed-amount" id="feed-amount">Amount: 0.001 ETH</div>
+                <div class="feed-button-small">Whenever you feed the Plantoid with cryptocurrency, you acquire a digital seed (NFT) with personalised artwork</div>
+            </div>
+
+            <script type="module">
+                import { feedPlantoid, handleConnectWallet, switchNetwork, getCurrentNetworkInfo } from './modules/web3utils.js';
+
+                document.querySelector('.feed-button').addEventListener('click', function () {
+                    const networkInfo = getCurrentNetworkInfo();
+                    const amount = networkInfo && networkInfo.isTestnet ? "0.001" : "0.01";
+
+                    this.textContent = 'Feeding...';
+                    this.style.background = 'linear-gradient(45deg, #16a085, #27ae60)';
+                    feedPlantoid(amount);
+                    setTimeout(() => {
+                        this.textContent = 'Feed Plantoid';
+                        this.style.background = 'linear-gradient(45deg, #1a1a2e, #16213e)';
+                    }, 2000);
+                });
+
+                document.getElementById('connect-wallet').addEventListener('click', async function () {
+                    this.textContent = 'Connecting...';
+                    this.classList.remove('connected');
+                    const address = await handleConnectWallet();
+                    if (address) {
+                        this.textContent = address;
+                        this.classList.add('connected');
+                    } else {
+                        this.textContent = 'Connect Wallet';
+                    }
+                });
+
+                document.getElementById('network-select').addEventListener('change', async function () {
+                    const selectedNetwork = this.value;
+                    const indicator = document.getElementById('network-indicator');
+                    indicator.textContent = 'Switching...';
+                    indicator.className = 'network-indicator switching';
+
+                    const success = await switchNetwork(selectedNetwork);
+
+                    if (!success) {
+                        const currentNetwork = getCurrentNetworkInfo();
+                        this.value = currentNetwork && currentNetwork.name.toLowerCase().includes('sepolia') ? 'sepolia' : 'mainnet';
+                    }
+
+                    updateFeedAmount();
+                });
+
+                function updateFeedAmount() {
+                    const networkInfo = getCurrentNetworkInfo();
+                    if (!networkInfo) return;
+                    const amount = networkInfo.isTestnet ? "0.001" : "0.01";
+                    document.getElementById('feed-amount').textContent = `Amount: ${amount} ETH`;
+                }
+
+                // Web3utils boots asynchronously; give it a beat before reading the network.
+                setTimeout(updateFeedAmount, 500);
+            </script>
+
+            <div class="info-section">
+                <div class="title-small">PLANTOID</div>
+
+                <div class="contributors"></div>
+
+                <div class="contributors"></div>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>

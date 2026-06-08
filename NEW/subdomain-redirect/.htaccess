@@ -1,0 +1,3 @@
+RewriteEngine On
+RewriteCond %{HTTP_HOST} ^(\d+)\.plantoid\.org$ [NC]
+RewriteRule ^.*$ https://feed.plantoid.org/?p=%1 [R=302,L]

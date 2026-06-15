@@ -487,6 +487,29 @@
             .plantoid-card { grid-template-columns: 1fr; }
             .seeds-gallery-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
         }
+
+        /* Compact layout for shorter screens (e.g. smaller iPads in
+           full-screen landscape) so the recent-seeds gallery stays in view
+           without scrolling. Triggered by viewport height, so desktop is
+           unaffected. */
+        @media (max-height: 860px) {
+            .container { padding: 0.5rem 1.25rem; }
+            .header { margin-top: 0.2rem; margin-bottom: 0.6rem; }
+            .title { font-size: 1.7rem; margin-bottom: 0.2rem; }
+            .subtitle { font-size: 0.72rem; }
+            .plantoid-card { padding: 1rem; gap: 1rem; border-radius: 18px; }
+            .plantoid-image { min-height: 210px; }
+            .stat-item { padding: 0.4rem 0; }
+            .feed-area { gap: 0.6rem; }
+            .feed-button { padding: 1rem 1rem; font-size: 1.15rem; }
+            .cooldown-circle { width: 96px; height: 96px; }
+            .cooldown-time { font-size: 0.95rem; }
+            .info-box { padding: 1rem; }
+            .description-text { font-size: 0.74rem; line-height: 1.5; }
+            .seeds-gallery { margin-top: 0; padding-top: 1rem; }
+            .seeds-gallery-title { font-size: 1.1rem; margin-bottom: 0.8rem; }
+            .seeds-gallery-grid { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 0.7rem; }
+        }
     </style>
 </head>
 <body>
@@ -872,7 +895,93 @@
             if (e.key === "Escape" && modal.classList.contains("active")) closeVideoModal();
         });
 
-        const MAX_SEEDS = 5;
+        // Hard ceiling so an unusually large screen can't kick off dozens of
+        // simultaneous video loads.
+        const SEED_MAX_COUNT = 60;
+
+        // Cache the fetched seed list and per-seed metadata so re-rendering when
+        // the panel resizes/rotates is instant and never re-hits the network.
+        let revealedSeeds = null;
+        const seedMetaCache = new Map();
+        let lastSeedCount = 0;
+
+        async function getSeedMetadata(seed) {
+            if (seedMetaCache.has(seed.id)) return seedMetaCache.get(seed.id);
+            const m = await fetchSeedMetadata(seed);
+            seedMetaCache.set(seed.id, m);
+            return m;
+        }
+
+        // How many seed tiles are needed to fill the visible gallery pane:
+        // (columns that fit across) × (rows that fit down to the bottom of the
+        // viewport). Tiles are square (aspect-ratio: 1), so row height ≈ column
+        // width. Reads the resolved auto-fill track list, so it automatically
+        // follows whichever responsive breakpoint is active.
+        function computeSeedCount() {
+            const grid = document.getElementById("seeds-gallery-grid");
+            const cs = getComputedStyle(grid);
+            const tracks = cs.gridTemplateColumns.split(" ").filter(Boolean);
+            const cols = Math.max(1, tracks.length);
+            const colW = parseFloat(tracks[0]) || 150;
+            const gap = parseFloat(cs.rowGap) || 0;
+            const rowH = colW + gap;
+            const top = grid.getBoundingClientRect().top;
+            const avail = window.innerHeight - top - 16; // small bottom breathing room
+            const rows = Math.max(1, Math.floor((avail + gap) / rowH));
+            return Math.min(SEED_MAX_COUNT, cols * rows);
+        }
+
+        // Build the gallery from the cached seed list, sized to fill the pane.
+        async function renderSeedsGallery() {
+            const grid = document.getElementById("seeds-gallery-grid");
+            const status = document.getElementById("seeds-gallery-status");
+            if (!revealedSeeds || !revealedSeeds.length) return;
+
+            const recent = revealedSeeds.slice(0, computeSeedCount());
+            lastSeedCount = recent.length;
+            status.style.display = "block";
+            status.textContent = `Loading ${recent.length} seeds…`;
+
+            // Reset previously-observed tiles, then drop ordered placeholders
+            // and fill each as its metadata arrives.
+            seedObserver.disconnect();
+            grid.innerHTML = "";
+            const cards = new Map();
+            recent.forEach((seed) => {
+                const card = document.createElement("div");
+                card.className = "seed-card";
+                card.title = `Seed #${seed.tokenId}`;
+                card.innerHTML = `<div class="seed-card-label">Seed #${seed.tokenId}</div>`;
+                grid.appendChild(card);
+                cards.set(seed.id, card);
+            });
+
+            let rendered = 0;
+            await Promise.all(recent.map(async (seed) => {
+                const card = cards.get(seed.id);
+                try {
+                    const m = await getSeedMetadata(seed);
+                    const animation = ipfsToHttp(m?.animation_url);
+                    const image = ipfsToHttp(m?.image);
+                    if (!animation) { card.remove(); return; }
+                    const poster = image ? ` poster="${image}"` : "";
+                    card.insertAdjacentHTML("afterbegin",
+                        `<video src="${animation}"${poster} muted loop playsinline preload="metadata"></video>`);
+                    card.addEventListener("click", () => openVideoModal(animation, image));
+                    seedObserver.observe(card);
+                    rendered++;
+                } catch (e) {
+                    console.error(`Seed ${seed.tokenId} metadata failed:`, e);
+                    card.remove();
+                }
+            }));
+
+            if (rendered === 0) {
+                status.textContent = "No revealed seeds with video yet.";
+            } else {
+                status.style.display = "none";
+            }
+        }
 
         async function loadRevealedSeedsGallery() {
             const grid = document.getElementById("seeds-gallery-grid");
@@ -886,50 +995,11 @@
                     status.textContent = "No revealed seeds yet.";
                     return;
                 }
-                // Newest first, capped to the most recent few
+                // Newest first; keep the whole list so the visible count can grow
+                // or shrink with the panel size.
                 seeds.sort((a, b) => parseInt(b.tokenId) - parseInt(a.tokenId));
-                const recent = seeds.slice(0, MAX_SEEDS);
-                status.textContent = `Loading ${recent.length} seeds…`;
-
-                // Reset previously-observed tiles, then drop ordered placeholders
-                // and fill each as its metadata arrives.
-                seedObserver.disconnect();
-                grid.innerHTML = "";
-                const cards = new Map();
-                recent.forEach((seed) => {
-                    const card = document.createElement("div");
-                    card.className = "seed-card";
-                    card.title = `Seed #${seed.tokenId}`;
-                    card.innerHTML = `<div class="seed-card-label">Seed #${seed.tokenId}</div>`;
-                    grid.appendChild(card);
-                    cards.set(seed.id, card);
-                });
-
-                let rendered = 0;
-                await Promise.all(recent.map(async (seed) => {
-                    const card = cards.get(seed.id);
-                    try {
-                        const m = await fetchSeedMetadata(seed);
-                        const animation = ipfsToHttp(m?.animation_url);
-                        const image = ipfsToHttp(m?.image);
-                        if (!animation) { card.remove(); return; }
-                        const poster = image ? ` poster="${image}"` : "";
-                        card.insertAdjacentHTML("afterbegin",
-                            `<video src="${animation}"${poster} muted loop playsinline preload="metadata"></video>`);
-                        card.addEventListener("click", () => openVideoModal(animation, image));
-                        seedObserver.observe(card);
-                        rendered++;
-                    } catch (e) {
-                        console.error(`Seed ${seed.tokenId} metadata failed:`, e);
-                        card.remove();
-                    }
-                }));
-
-                if (rendered === 0) {
-                    status.textContent = "No revealed seeds with video yet.";
-                } else {
-                    status.style.display = "none";
-                }
+                revealedSeeds = seeds;
+                await renderSeedsGallery();
             } catch (e) {
                 console.error("Failed to load revealed seeds gallery:", e);
                 status.textContent = "Could not load seeds.";
@@ -937,6 +1007,19 @@
         }
 
         document.getElementById("feed-btn").addEventListener("click", feedPlantoid);
+
+        // Refill the gallery when the panel size changes (window resize, iPad
+        // rotation). Re-renders from cache — no extra network — and only when
+        // the number of tiles that fit actually changes.
+        let resizeTimer = null;
+        window.addEventListener("resize", () => {
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(() => {
+                if (!revealedSeeds || !revealedSeeds.length) return;
+                const want = Math.min(computeSeedCount(), revealedSeeds.length);
+                if (want !== lastSeedCount) renderSeedsGallery();
+            }, 250);
+        });
 
         window.addEventListener("load", bootstrap);
     </script>

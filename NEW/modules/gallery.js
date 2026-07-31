@@ -176,60 +176,32 @@ async function subgraphFetchSeeds(plantoidAddress, { revealedOnly }) {
     return [];
   }
 
-  if (revealedOnly) {
-    const query = `
-      query GetRevealedSeeds($plantoidId: String!) {
-        plantoidInstance(id: $plantoidId) {
-          seeds(first: 1000, where: {revealed: true}) {
-            id
-            tokenId
-            uri
-            revealed
-            holder { address }
-          }
-        }
-      }
-    `;
-    const response = await fetch(subgraphUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        query,
-        variables: { plantoidId: plantoidAddress.toLowerCase() },
-      }),
-    });
-    if (!response.ok) throw new Error(`Subgraph HTTP ${response.status}`);
-    const result = await response.json();
-    if (result.errors)
-      throw new Error(`Subgraph GraphQL: ${JSON.stringify(result.errors)}`);
-    return result.data?.plantoidInstance?.seeds || [];
-  }
-
-  // For "all seeds": legacy subgraph indexes globally; fetch all + filter client-side
-  // by id-prefix (matches the original gallery.js behavior).
   const query = `
-    query GetSeeds {
-      seeds(first: 1000) {
-        id
-        tokenId
-        revealed
-        uri
-        holder { address }
+    query GetSeeds($plantoidId: String!) {
+      plantoidInstance(id: $plantoidId) {
+        seeds(first: 1000${revealedOnly ? ", where: {revealed: true}" : ""}) {
+          id
+          tokenId
+          uri
+          revealed
+          holder { address }
+        }
       }
     }
   `;
   const response = await fetch(subgraphUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ query }),
+    body: JSON.stringify({
+      query,
+      variables: { plantoidId: plantoidAddress.toLowerCase() },
+    }),
   });
   if (!response.ok) throw new Error(`Subgraph HTTP ${response.status}`);
   const result = await response.json();
   if (result.errors)
     throw new Error(`Subgraph GraphQL: ${JSON.stringify(result.errors)}`);
-  const all = result.data?.seeds || [];
-  const prefix = plantoidAddress.toLowerCase();
-  return all.filter((s) => s.id.toLowerCase().startsWith(prefix));
+  return result.data?.plantoidInstance?.seeds || [];
 }
 
 async function fetchSeedsForPlantoid(plantoidAddress, options = {}) {

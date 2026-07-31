@@ -593,7 +593,7 @@
         <div class="video-modal-backdrop"></div>
         <div class="video-modal-content">
             <button class="video-modal-close" id="video-modal-close" aria-label="Close">×</button>
-            <video id="video-modal-player" controls loop playsinline></video>
+            <video id="video-modal-player" controls playsinline></video>
         </div>
     </div>
 
@@ -601,7 +601,8 @@
         import { resolvePlantoid, getNetworks, getRegistry } from "../modules/plantoid-resolver.js";
 
         const FUNNY = "0x61c5ed909c63d9348bee0f3e29f8d0c12673e4ce37dca43896a1537c81437730";
-        const COOLDOWN_MS = 60 * 60 * 1000;
+        // Default feed cooldown is 1 hour; overridden per-plantoid in bootstrap().
+        let COOLDOWN_MS = 60 * 60 * 1000;
         const CIRCUMFERENCE = 2 * Math.PI * 54;
 
         const ABI = [
@@ -623,6 +624,8 @@
 
         async function bootstrap() {
             plantoid = await resolvePlantoid();
+            // P18 (Art Basel) feeds on a 15-minute cooldown; all others stay at 1 hour.
+            COOLDOWN_MS = plantoid.number === 18 ? 15 * 60 * 1000 : 60 * 60 * 1000;
             const networks = await getNetworks();
             const registry = await getRegistry();
 
@@ -696,6 +699,47 @@
             }
         }
 
+        // The free public RPC can be slow or silently drop requests under load,
+        // and ethers has no built-in timeout — so an unanswered call would leave
+        // the button frozen on "Feeding…" forever. Bound every wait and retry
+        // the broadcast so a stuck request resets cleanly and the visitor can
+        // try again.
+        const SEND_TIMEOUT_MS = 15000;     // per broadcast attempt
+        const CONFIRM_TIMEOUT_MS = 90000;  // wait for mining, then proceed anyway
+        const SEND_ATTEMPTS = 3;
+
+        const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+        function withTimeout(promise, ms, label) {
+            let timer;
+            const timeout = new Promise((_, reject) => {
+                timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms / 1000}s`)), ms);
+            });
+            return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+        }
+
+        // Broadcast the feed transaction, retrying if the RPC hangs or returns a
+        // transient error. ethers re-derives the nonce on each attempt, which
+        // clears most shared-key nonce collisions on the load-balanced node.
+        async function sendFeedTx() {
+            const value = ethers.parseEther(network.feedAmount);
+            let lastErr;
+            for (let attempt = 1; attempt <= SEND_ATTEMPTS; attempt++) {
+                try {
+                    return await withTimeout(
+                        signer.sendTransaction({ to: contractAddress, value }),
+                        SEND_TIMEOUT_MS,
+                        "Sending transaction"
+                    );
+                } catch (e) {
+                    lastErr = e;
+                    console.warn(`Feed attempt ${attempt}/${SEND_ATTEMPTS} failed:`, e.message);
+                    if (attempt < SEND_ATTEMPTS) await sleep(1500);
+                }
+            }
+            throw lastErr;
+        }
+
         async function feedPlantoid() {
             const btn = document.getElementById("feed-btn");
 
@@ -704,18 +748,22 @@
                 btn.disabled = true;
                 btn.classList.add("loading");
 
-                const tx = await signer.sendTransaction({
-                    to: contractAddress,
-                    value: ethers.parseEther(network.feedAmount)
-                });
-
+                const tx = await sendFeedTx();
                 console.log("Transaction sent:", tx.hash);
                 btn.innerHTML = "<span>Confirming...</span>";
 
-                await tx.wait();
-                console.log("Transaction confirmed");
-
-                btn.innerHTML = "<span>✓ Fed!</span>";
+                // Don't let a slow miner or a dropped tx freeze the UI: wait for
+                // confirmation, but cap it. The tx is already broadcast, so if it
+                // doesn't confirm in time we proceed anyway (it'll most likely
+                // mine shortly after).
+                try {
+                    await withTimeout(tx.wait(), CONFIRM_TIMEOUT_MS, "Confirmation");
+                    console.log("Transaction confirmed");
+                    btn.innerHTML = "<span>✓ Fed!</span>";
+                } catch (e) {
+                    console.warn("Confirmation wait gave up:", e.message);
+                    btn.innerHTML = "<span>✓ Sent!</span>";
+                }
                 btn.style.background = "linear-gradient(45deg, #16a085, #27ae60)";
 
                 await loadStats();
@@ -731,7 +779,7 @@
                 }, 3000);
             } catch (error) {
                 console.error("Failed to feed:", error);
-                alert(`Transaction failed.\n\nError: ${error.message}`);
+                alert(`Transaction failed. Please try again.\n\nError: ${error.message}`);
                 btn.innerHTML = "<span>Feed Plantoid</span>";
                 btn.style.background = "";
                 btn.disabled = false;
@@ -891,6 +939,8 @@
 
         document.getElementById("video-modal-close").addEventListener("click", closeVideoModal);
         modal.querySelector(".video-modal-backdrop").addEventListener("click", closeVideoModal);
+        // Auto-close the popup once the clip finishes playing.
+        modalPlayer.addEventListener("ended", closeVideoModal);
         document.addEventListener("keydown", (e) => {
             if (e.key === "Escape" && modal.classList.contains("active")) closeVideoModal();
         });
